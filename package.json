@@ -18,7 +18,8 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "hubot": "2.x"
+    "hubot": "2.x",
+    "cron": ""
   },
   "devDependencies": {
     "hubot-test-helper": "^1.3.0",

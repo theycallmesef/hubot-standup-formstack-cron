@@ -56,40 +56,40 @@ const BLOCK_ID = process.env.HUBOT_FORMSTACK_BLOCKER_FIELD_ID; //(Required) Form
 const DAYSBACK = process.env.HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK || 10; //(Optional) filter formstack submissions within X day ago
 
 const ROOM = process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME; //(Required for reminder and report) Chat room name for auto reminder and report
-const TIMEZONE = process.env.HUBOT_FORMSTACK_TIMEZONE; //(Required for reminder and report) Timezone for cron
+const TIMEZONE = process.env.HUBOT_FORMSTACK_TIMEZONE || 'America/New_York'; //(Optional for reminder and report) Timezone for cron
 
-const FS_URL = process.env.HUBOT_FORMSTACK_URL || "!"; //(Optional for reminder) url of the form for auto reminder
+const FS_URL = process.env.HUBOT_FORMSTACK_URL || ""; //(Optional for reminder) url of the form for auto reminder
 const REMINDER_CRON = process.env.HUBOT_FORMSTACK_REMINDER_CRON; //(Required for reminder) schedule a reminder to fill the form
 const STANDUP_REPORT_CRON = process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON; //(Required for auto report) schedule to send the submissions
 
 // TODO make reminder optional
 module.exports = (robot) => {
   // cron module
-  const cron = require('node-cron');
+  const CronJob = require('cron').CronJob;
   // Reminder with names of those who already filled it out cron
-  if (TIMEZONE) {
-    CRON_SCHL_JSON = {scheduled: true, timezone: TIMEZONE};
-  } else {
-    CRON_SCHL_JSON = {scheduled: true};
-  }
   if (REMINDER_CRON && ROOM) {
-    cron.schedule(REMINDER_CRON, () => {
+    // Reminder Cron
+    REMINDER_CRON_JOB = new CronJob(REMINDER_CRON, function() {
       robot.messageRoom(ROOM, `@here Time to fill out the stand up report ${FS_URL}\n`);
       // fuction to list who has filled out the form
       return FilledItOut(ROOM);
-    },CRON_SCHL_JSON);
+    }, null, true, CRON_SCHL_JSON);
+    REMINDER_CRON_JOB.start
   } else {
     robot.logger.error("Missing variable for reminder cron");
   }
   if (STANDUP_REPORT_CRON && ROOM) {
     // Report results cron
-    cron.schedule(STANDUP_REPORT_CRON, () => {
+    STANDUP_REPORT_CRON_JOB = new CronJob(STANDUP_REPORT_CRON, function() {
       // fuction to list results of form for today
       return ReportStandup(ROOM);
-    },CRON_SCHL_JSON);
+    }, null, true, CRON_SCHL_JSON);
+    STANDUP_REPORT_CRON_JOB.start
   } else {
     robot.logger.error("Missing variable for standup cron");
   }
+
+
 
   // ad-hoc commands
   robot.hear(/^ps-standup( ([Tt]oday))?$/i, (msg) => {
