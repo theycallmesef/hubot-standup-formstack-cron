@@ -5,22 +5,33 @@
 //   Seth Rouggly <srouggly@apu.edu>
 //
 // Notes:
-//
+//  Formstack is an online form builder (https://www.formstack.com/)
+//    Form required fields:
+//    - Date Feild
+//    - Yesterday notes
+//    - Today Notes
+//    - Blocker Notes
+//    - First Name
+//    - Last Name
 //
 // Configuration:
-//  FS_TOKEN - (required) Formstack API Token
-//  FS_FORMID - (required) Formstack form ID
-//  DATEFIELD_ID - (required) Formstack date feild ID
-//  USERN_ID - (required) Formstack User name feild ID
-//  YDAY_ID - (required) Formstack Yesterday feild ID
-//  TDAY_ID - (required) Formstack Today feild ID
-//  BLOCK_ID - (required) Formstack Blocker feild ID
-//  DAYSBACK - (Optional) Formstack submissions limiter
-//  FS_URL - (required for reminder) url of the form for auto reminder
-//  ROOM - (required for reminder) Chat room name for auto reminder and report
-//  TIMEZONE - (required for reminder)
-//  REMINDER_CRON - (required for reminder) schedule a reminder to fill the form
-//  STANDUP_REPORT_CRON - (required for auto report) schedule to send the submissions
+//  HUBOT_FORMSTACK_TOKEN - (required) Formstack API Token
+//
+//  HUBOT_FORMSTACK_FORM_ID - (required) Formstack form ID
+//  HUBOT_FORMSTACK_DATE_FIELD_ID - (required) Formstack date feild ID
+//  HUBOT_FORMSTACK_USER_FIELD_ID - (required) Formstack User name feild ID
+//  HUBOT_FORMSTACK_YESTERDAY_FIELD_ID - (required) Formstack Yesterday feild ID
+//  HUBOT_FORMSTACK_TODAY_FIELD_ID - (required) Formstack Today feild ID
+//  HUBOT_FORMSTACK_BLOCKER_FIELD_ID - (required) Formstack Blocker feild ID
+//
+//  HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK - (Optional) Formstack submissions limiter
+//
+//  HUBOT_FORMSTACK_CHAT_ROOM_NAME - (required for reminder) Chat room name for auto reminder and report
+//  HUBOT_FORMSTACK_TIMEZONE - (required for reminder)
+//
+//  HUBOT_FORMSTACK_URL - (required for reminder) url of the form for auto reminder
+//  HUBOT_FORMSTACK_REMINDER_CRON - (required for reminder) schedule a reminder to fill the form
+//  HUBOT_FORMSTACK_STANDUP_REPORT_CRON - (required for auto report) schedule to send the submissions
 //
 //
 // Commands:
