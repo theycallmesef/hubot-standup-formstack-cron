@@ -73,7 +73,7 @@ module.exports = (robot) => {
       robot.messageRoom(ROOM, `@here Time to fill out the stand up report ${FS_URL}\n`);
       // fuction to list who has filled out the form
       return FilledItOut(ROOM);
-    }, null, true, CRON_SCHL_JSON);
+    }, null, true, TIMEZONE);
     REMINDER_CRON_JOB.start
   } else {
     robot.logger.error("Missing variable for reminder cron");
@@ -83,13 +83,11 @@ module.exports = (robot) => {
     STANDUP_REPORT_CRON_JOB = new CronJob(STANDUP_REPORT_CRON, function() {
       // fuction to list results of form for today
       return ReportStandup(ROOM);
-    }, null, true, CRON_SCHL_JSON);
+    }, null, true, TIMEZONE);
     STANDUP_REPORT_CRON_JOB.start
   } else {
     robot.logger.error("Missing variable for standup cron");
   }
-
-
 
   // ad-hoc commands
   robot.hear(/^ps-standup( ([Tt]oday))?$/i, (msg) => {
