@@ -35,14 +35,13 @@
 //
 //
 // Commands:
-//  hubot ps-standup            List results of standup form for today
-//  hubot ps-standup today      List who has filled out the standup form
+//  hubot fs-standup            List results of standup form for today
+//  hubot fs-standup today      List who has filled out the standup form
 //
 //
 // TODO:
 //  - Univesal command (custom command)??
-//  - More environmental variables
-//  - Return results by specific user
+//  - Return results by specific user (fs-standup kim)
 
 const FS_TOKEN = process.env.HUBOT_FORMSTACK_TOKEN || false; //(Required) Formstack API Token
 // Formstack form and feild ID's
@@ -61,6 +60,7 @@ const TIMEZONE = process.env.HUBOT_FORMSTACK_TIMEZONE || 'America/New_York'; //(
 const FS_URL = process.env.HUBOT_FORMSTACK_URL || ""; //(Optional for reminder) url of the form for auto reminder
 const REMINDER_CRON = process.env.HUBOT_FORMSTACK_REMINDER_CRON; //(Required for reminder) schedule a reminder to fill the form
 const STANDUP_REPORT_CRON = process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON; //(Required for auto report) schedule to send the submissions
+const FSAPIURL = 'https://www.formstack.com/api/v2/form/' + FS_FORMID + '/submission.json'
 
 // TODO make reminder optional
 module.exports = (robot) => {
@@ -90,7 +90,7 @@ module.exports = (robot) => {
   }
 
   // ad-hoc commands
-  robot.hear(/^ps-standup( ([Tt]oday))?$/i, (msg) => {
+  robot.hear(/^fs-standup( ([Tt]oday))?$/i, (msg) => {
     msg.finish();
     // Logic to seperate the commands
     if (msg.match[2] && msg.match[2].toLowerCase() === "today") {
@@ -136,7 +136,7 @@ module.exports = (robot) => {
       return;
     }
     // formstack url with form ID, token (oauth_token) and date range filter (min_time)
-    const FSURL = `https://www.formstack.com/api/v2/form/${FS_FORMID}/submission.json?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`
+    const FSURL = `${FSAPIURL}?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`
     // Get json of form submissions
     robot.http(FSURL).get()((err, res, body) => {
       if (err) {
