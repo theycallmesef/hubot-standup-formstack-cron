@@ -60,7 +60,7 @@ const TIMEZONE = process.env.HUBOT_FORMSTACK_TIMEZONE || 'America/New_York'; //(
 const FS_URL = process.env.HUBOT_FORMSTACK_URL || ""; //(Optional for reminder) url of the form for auto reminder
 const REMINDER_CRON = process.env.HUBOT_FORMSTACK_REMINDER_CRON; //(Required for reminder) schedule a reminder to fill the form
 const STANDUP_REPORT_CRON = process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON; //(Required for auto report) schedule to send the submissions
-const FSAPIURL = 'https://www.formstack.com/api/v2/form/' + FS_FORMID + '/submission.json'
+const FSAPIURL = 'https://www.formstack.com/api/v2/form/' + FS_FORMID + '/submission.json'; // Building the API url
 
 // TODO make reminder optional
 module.exports = (robot) => {
