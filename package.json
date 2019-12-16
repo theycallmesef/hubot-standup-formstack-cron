@@ -16,7 +16,9 @@
   "bugs": {
     "url": "git://github.com/theycallmesef/hubot-standup-formstack-cron/issues"
   },
-  "dependencies": {},
+  "dependencies": {
+    "cron": "^1.7.2"
+  },
   "peerDependencies": {
     "coffee-script": "~1.6",
     "cron": "^1.7.2"
