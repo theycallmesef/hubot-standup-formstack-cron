@@ -38,6 +38,8 @@
 //  hubot fs-standup            List results of standup form for today
 //  hubot fs-standup today      List who has filled out the standup form
 //
+// Dependencies:
+//  cron
 //
 // TODO:
 //  - Univesal command (custom command)??
@@ -62,7 +64,6 @@ const REMINDER_CRON = process.env.HUBOT_FORMSTACK_REMINDER_CRON; //(Required for
 const STANDUP_REPORT_CRON = process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON; //(Required for auto report) schedule to send the submissions
 const FSAPIURL = 'https://www.formstack.com/api/v2/form/' + FS_FORMID + '/submission.json'; // Building the API url
 
-// TODO make reminder optional
 module.exports = (robot) => {
   // cron module
   const CronJob = require('cron').CronJob;

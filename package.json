@@ -17,6 +17,7 @@
     "url": "git://github.com/theycallmesef/hubot-standup-formstack-cron/issues"
   },
   "dependencies": {
+    "@types/cron": "^1.7.1",
     "cron": "^1.7.2"
   },
   "devDependencies": {
