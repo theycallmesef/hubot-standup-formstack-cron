@@ -24,6 +24,8 @@
 //  HUBOT_FORMSTACK_TODAY_FIELD_ID - (required) Formstack Today feild ID
 //  HUBOT_FORMSTACK_BLOCKER_FIELD_ID - (required) Formstack Blocker feild ID
 //
+//  HUBOT_FORMSTACK_PREFIX - (Optional) set a prefix for multiple standup reports
+//
 //  HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK - (Optional) Formstack submissions limiter
 //
 //  HUBOT_FORMSTACK_CHAT_ROOM_NAME - (required for reminder) Chat room name for auto reminder and report
@@ -35,8 +37,8 @@
 //
 //
 // Commands:
-//  hubot fs-standup            List results of standup form for today
-//  hubot fs-standup today      List who has filled out the standup form
+//  hubot (CustomPrefix-)standup            List results of standup form for today
+//  hubot (CustomPrefix-)standup today      List who has filled out the standup form
 //
 // Dependencies:
 //  cron
@@ -53,6 +55,8 @@ const USERN_ID = process.env.HUBOT_FORMSTACK_USER_FIELD_ID; //(Required) Formsta
 const YDAY_ID = process.env.HUBOT_FORMSTACK_YESTERDAY_FIELD_ID; //(Required) Formstack Yesterday field ID
 const TDAY_ID = process.env.HUBOT_FORMSTACK_TODAY_FIELD_ID; //(Required) Formstack Today field ID
 const BLOCK_ID = process.env.HUBOT_FORMSTACK_BLOCKER_FIELD_ID; //(Required) Formstack Blocker field ID
+
+const PREFIX = process.env.HUBOT_FORMSTACK_PREFIX && (PREFIX = process.env.HUBOT_FORMSTACK_PREFIX + "-") || ""; //(Optional) set a prefix for multiple standup reports
 
 const DAYSBACK = process.env.HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK || 10; //(Optional) filter formstack submissions within X day ago
 
@@ -91,7 +95,8 @@ module.exports = (robot) => {
   }
 
   // ad-hoc commands
-  robot.hear(/^fs-standup( ([Tt]oday))?$/i, (msg) => {
+  regx = new RegExp("^" + PREFIX + "standup( ([Tt]oday))?$", 'i');
+  robot.hear(regx, (msg) => {
     msg.finish();
     // Logic to seperate the commands
     if (msg.match[2] && msg.match[2].toLowerCase() === "today") {

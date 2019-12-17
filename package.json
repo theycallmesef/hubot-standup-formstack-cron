@@ -17,12 +17,15 @@
     "url": "git://github.com/theycallmesef/hubot-standup-formstack-cron/issues"
   },
   "dependencies": {
-    "@types/cron": "^1.7.1",
     "cron": "^1.7.2"
+  },
+  "peerDependencies": {
+    "coffeescript": ">=1.6.2",
+    "hubot":"2.x"
   },
   "devDependencies": {
     "chai": "^2.1.1",
-    "coffee-script": "~1.6",
+    "coffee-script": "^1.6",
     "grunt-contrib-watch": "*",
     "grunt-mocha-test": "*",
     "hubot-test-helper": "^1.3.0",
