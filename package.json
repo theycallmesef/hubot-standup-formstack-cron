@@ -17,7 +17,7 @@
     "url": "git://github.com/theycallmesef/hubot-standup-formstack-cron/issues"
   },
   "publishConfig": {
-    "registry": "https://www.npmjs.com/package/hubot-standup-formstack-cron" 
+    "registry": "https://www.npmjs.com/package"
   },
   "dependencies": {
     "cron": "^1.7.2"
