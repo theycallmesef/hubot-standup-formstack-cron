@@ -56,7 +56,12 @@ const YDAY_ID = process.env.HUBOT_FORMSTACK_YESTERDAY_FIELD_ID; //(Required) For
 const TDAY_ID = process.env.HUBOT_FORMSTACK_TODAY_FIELD_ID; //(Required) Formstack Today field ID
 const BLOCK_ID = process.env.HUBOT_FORMSTACK_BLOCKER_FIELD_ID; //(Required) Formstack Blocker field ID
 
-const PREFIX = process.env.HUBOT_FORMSTACK_PREFIX && (PREFIX = process.env.HUBOT_FORMSTACK_PREFIX + "-") || ""; //(Optional) set a prefix for multiple standup reports
+//(Optional) set a prefix for multiple standup reports
+if (process.env.HUBOT_FORMSTACK_PREFIX) {
+  const PREFIX = process.env.HUBOT_FORMSTACK_PREFIX + "-";
+} else {
+  const PREFIX = "";
+}
 
 const DAYSBACK = process.env.HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK || 10; //(Optional) filter formstack submissions within X day ago
 
