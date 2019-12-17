@@ -1,7 +1,7 @@
 {
   "name": "hubot-standup-formstack-cron",
   "description": "A hubot script that gets formstack entries and posts the info on a cron",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "author": "Seth Rouggly",
   "license": "MIT",
   "keywords": [
