@@ -94,21 +94,24 @@ module.exports = (robot) => {
     robot.logger.error("Missing variable for standup cron");
   }
 
-  // ad-hoc commands
-  regx = new RegExp("^" + PREFIX + "standup( ([Tt]oday))?$", 'i');
+  // ---- ad-hoc commands ----
+  var regx = new RegExp("^" + PREFIX + "standup(\\s)?(\\w+)?$", 'i');
   robot.hear(regx, (msg) => {
     msg.finish();
     // Logic to seperate the commands
     if (msg.match[2] && msg.match[2].toLowerCase() === "today") {
-      // fuction to list who has filled out the form
-      FilledItOut(msg.message.room)
+      // fuction to list all users that filled out the form
+      FilledItOut(msg.message.room);
+    } else if (msg.match[2] && msg.match[2].toLowerCase() !== "today") {
+      // function to list a single user that filled out the form
+      SingleReport(msg.message.room, msg.match[2]);
     } else {
       // fuction to list results of form for today
       ReportStandup(msg.message.room);
     }
-  });
+  })
 
-  // Date calculator and formater
+  // ---- Date calculator and formater ----
   // returns formated current date "DATEFORMAT" and lookback date "MINDATE"
   function CalcDate() {
     const TODAY = new Date;
@@ -131,12 +134,12 @@ module.exports = (robot) => {
     }
   }
 
-  // function to return json from formstack web request
+  // ---- Return json from formstack web request ----
   // "MINDATE" is passed in, "jbody" is the return
   function GetFormData(room, MINDATE, jbody) {
     // Check formstack token is set
     if (FS_TOKEN === false) {
-      // send error message to room
+      // send error message to room to fix formstack api token
       robot.messageRoom(room, "um... so, according to my records a formstack token was not set up.\nYou'll need to have that done before I can I can retrieve the data");
       robot.logger.error("Missing formstack token");
       return;
@@ -158,13 +161,48 @@ module.exports = (robot) => {
         }
         // send results to return function
         jbody(jdata);
-      }
+      };
     });
   };
 
-  // From data report
+  // ---- Format and Clean message data ----
+  function FormatClean(entry, clnmessage) {
+    var yday, tday, block, message;
+    // fuction to clean up submission text
+    function CleanTxt(value) {
+      // Clean trailing spaces
+      Cleaned1 = value.replace(/\s+$/g, "");
+      // Clean Leading spaces and leading hyphans
+      Cleaned2 = Cleaned1.replace(/^\s*\-+\s*|\s*\-+\s*$|^\s+/gm, "");
+      // Clean trailing spaces..again
+      Cleaned3 =Cleaned2.replace(/\s+$/g, "");
+      // Add tab and hyphan
+      return Cleaned3.replace(/^/gm, "\t\- ");
+    };
+
+    // set vars for text from json data
+    datefield = entry.data[DATEFIELD_ID].value;
+    usern = entry.data[USERN_ID].value;
+    yday = entry.data[YDAY_ID].value;
+    tday = entry.data[TDAY_ID].value;
+    block = entry.data[BLOCK_ID].value;
+    // assemble message
+    // title with user name and date
+    message = `*${usern}* - ${datefield}`;
+    // title section Yesterday with user data below
+    message += "\n\t*_Yesterday:_*\n" + CleanTxt(yday);
+    // title section Today with user data below
+    message += "\n\t*_Today:_*\n" + CleanTxt(tday);
+    // skip blocker section if empty
+    if (block !== "Nothing") {
+      message += "\n\t*_Blockers:_*\n" + CleanTxt(block);
+    };
+    clnmessage(message);
+  };
+
+  // ---- Form data Report for all users today ----
   function ReportStandup(room) {
-    var entry, yday, tday, block, message;
+    var entry, clnmessage;
     // Get dates needed
     Dates = CalcDate();
     DATEFORMAT = Dates[0];
@@ -178,39 +216,13 @@ module.exports = (robot) => {
         datefield = entry.data[DATEFIELD_ID].value;
         // Parse submissions and match for today
         if (datefield === DATEFORMAT) {
-          // fuction to clean up submission text
-          function CleanTxt(value) {
-            // Clean trailing spaces
-            Cleaned1 = value.replace(/\s+$/g, "");
-            // Clean Leading spaces and leading hyphans
-            Cleaned2 = Cleaned1.replace(/^\s*\-+\s*|\s*\-+\s*$|^\s+/gm, "");
-            // Clean trailing spaces..again
-            Cleaned3 =Cleaned2.replace(/\s+$/g, "");
-            // Add tab and hyphan
-            return Cleaned3.replace(/^/gm, "\t\- ");
-          };
-
-          // set vars for text from json
-          usern = entry.data[USERN_ID].value;
-          yday = entry.data[YDAY_ID].value;
-          tday = entry.data[TDAY_ID].value;
-          block = entry.data[BLOCK_ID].value;
-          // assemble message
-          // title with user name and date
-          message = `*${usern}* - ${datefield}`;
-          // title section Yesterday with user data below
-          message += "\n\t*_Yesterday:_*\n" + CleanTxt(yday);
-          // title section Today with user data below
-          message += "\n\t*_Today:_*\n" + CleanTxt(tday);
-          // skip blocker section if empty
-          if (block !== "Nothing") {
-            message += "\n\t*_Blockers:_*\n" + CleanTxt(block);
-          }
-          // send message to room
-          robot.messageRoom(room, message);
-        }
-      }
-      if (!message) {
+          FormatClean(entry, (clnmessage) => {
+            robot.messageRoom(room, clnmessage);
+          });
+        };
+      };
+      if (!clnmessage) {
+        // Funny messages hubot sends if no results are found
         var gone = [
           "Sooooo... Is everyone on holiday?",
           "Nothing? Was it something I said?",
@@ -220,15 +232,46 @@ module.exports = (robot) => {
           "https://media.giphy.com/media/jNH0Bto1xBNwQ/giphy.gif",
           "Today was a day off wasn't it?... I wish I had a day off",
           "Great! I'm going back to sleep",
-          ":rotating_light: Otterbot dance party!! :rotating_light: \n\thttps://media.giphy.com/media/v0YiARQxj1yc8/giphy.gif",
-          "*Otterbot* - " + datefield + "\n\t*_Yesterday:_*\n\t\- Report Standup\n\t\- Answer Questions\n\t\- Otter duties as assigned\n\t*_Today:_*\n\t\- Report Standup\n\t\- Answer Questions\n\t\- Otter duties as assigned\n\t*_Blockers:_*\n\t\- No one is here"
-        ];
+          ":rotating_light: " + robot.name + " dance party!! :rotating_light: \n\thttps://media.giphy.com/media/v0YiARQxj1yc8/giphy.gif",
+          "*" + robot.name + "* - " + DATEFORMAT + "\n\t*_Yesterday:_*\n\t\- Report Standup\n\t\- Answer Questions\n\t\- Other duties as assigned\n\t*_Today:_*\n\t\- Report Standup\n\t\- Answer Questions\n\t\- Other duties as assigned\n\t*_Blockers:_*\n\t\- No one is here"
+        ]
         robot.messageRoom(room, gone[Math.floor(Math.random()*gone.length)]);
-      }
+      };
     });
   };
 
-  // Who filled out report today
+  // ---- Form data Report for single user ----
+  function SingleReport(room, user) {
+    var message;
+    // Get dates needed
+    Dates = CalcDate();
+    DateFormat = Dates[0];
+    MINDATE = Dates[1];
+    // Callback return function of pased json from url
+    GetFormData(room, MINDATE, (jdata) => {
+      // loop filtered submissions
+      for (entry of jdata.submissions) {
+        const usern = entry.data[USERN_ID].value;
+        const datefield = entry.data[DATEFIELD_ID].value;
+        // build array of usernames for today
+        if (datefield === DateFormat) {
+          // look up user
+          if (usern.toLowerCase() === user.toLowerCase()) {
+            FormatClean(entry, (RtrnMessage) => {
+              message = RtrnMessage;
+            });
+          };
+        };
+      };
+      if (!message) {
+        message = `I'm not able to find ${user}\n`;
+        FilledItOut(room);
+      };
+      robot.messageRoom(room, message);
+    });
+  };
+
+  // ---- List users who filled out report today ----
   function FilledItOut(room) {
     // Get dates needed
     Dates = CalcDate();
@@ -244,8 +287,8 @@ module.exports = (robot) => {
         // build array of usernames for today
         if (datefield === DateFormat) {
           users.push(usern);
-        }
-      }
+        };
+      };
       // comma seperate users array and replace last comma with "and"
       userList = users.join(", ").replace(/, ([^,]+)$/, ' and $1');
       // set message and grammer to fit results
@@ -258,7 +301,7 @@ module.exports = (robot) => {
       } else {
         // message for 2+ users
         message = `${userList} have filled out the report for today`;
-      }
+      };
       // send message to room
       robot.messageRoom(room, message);
     });
