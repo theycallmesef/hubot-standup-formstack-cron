@@ -79,21 +79,20 @@ module.exports = (robot) => {
       // fuction to list who has filled out the form
       return FilledItOut(ROOM);
     }, null, true, TIMEZONE);
-    REMINDER_CRON_JOB.start
+    REMINDER_CRON_JOB.start;
   } else {
     robot.logger.error("Missing variable for reminder cron");
-  }
+  };
   if (STANDUP_REPORT_CRON && ROOM) {
     // Report results cron
     STANDUP_REPORT_CRON_JOB = new CronJob(STANDUP_REPORT_CRON, function() {
       // fuction to list results of form for today
       return ReportStandup(ROOM);
     }, null, true, TIMEZONE);
-    STANDUP_REPORT_CRON_JOB.start
+    STANDUP_REPORT_CRON_JOB.start;
   } else {
     robot.logger.error("Missing variable for standup cron");
-  }
-
+  };
   // ---- ad-hoc commands ----
   var regx = new RegExp("^" + PREFIX + "standup(\\s)?(\\w+)?$", 'i');
   robot.hear(regx, (msg) => {
@@ -108,12 +107,13 @@ module.exports = (robot) => {
     } else {
       // fuction to list results of form for today
       ReportStandup(msg.message.room);
-    }
-  })
+    };
+  });
 
   // ---- Date calculator and formater ----
   // returns formated current date "DATEFORMAT" and lookback date "MINDATE"
   function CalcDate() {
+    // TODO set date to match timezone var
     const TODAY = new Date;
     const TODAYBACK = new Date;
     // Set date lookback XX amount of days
@@ -131,9 +131,8 @@ module.exports = (robot) => {
       return [DATEFORMAT, MINDATE];
     } else {
       robot.logger.error("Issue with date formats. One or more is missing");
-    }
-  }
-
+    };
+  };
   // ---- Return json from formstack web request ----
   // "MINDATE" is passed in, "jbody" is the return
   function GetFormData(room, MINDATE, jbody) {
@@ -143,9 +142,9 @@ module.exports = (robot) => {
       robot.messageRoom(room, "um... so, according to my records a formstack token was not set up.\nYou'll need to have that done before I can I can retrieve the data");
       robot.logger.error("Missing formstack token");
       return;
-    }
+    };
     // formstack url with form ID, token (oauth_token) and date range filter (min_time)
-    const FSURL = `${FSAPIURL}?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`
+    const FSURL = `${FSAPIURL}?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`;
     // Get json of form submissions
     robot.http(FSURL).get()((err, res, body) => {
       if (err) {
@@ -158,7 +157,7 @@ module.exports = (robot) => {
         if (jdata.error) {
           robot.messageRoom(room, "Somethings not right, have my owner take a look at my logs");
           robot.logger.error(`Error retreving data: ${jdata.error}`);
-        }
+        };
         // send results to return function
         jbody(jdata);
       };
@@ -234,7 +233,7 @@ module.exports = (robot) => {
           "Great! I'm going back to sleep",
           ":rotating_light: " + robot.name + " dance party!! :rotating_light: \n\thttps://media.giphy.com/media/v0YiARQxj1yc8/giphy.gif",
           "*" + robot.name + "* - " + DATEFORMAT + "\n\t*_Yesterday:_*\n\t\- Report Standup\n\t\- Answer Questions\n\t\- Other duties as assigned\n\t*_Today:_*\n\t\- Report Standup\n\t\- Answer Questions\n\t\- Other duties as assigned\n\t*_Blockers:_*\n\t\- No one is here"
-        ]
+        ];
         robot.messageRoom(room, gone[Math.floor(Math.random()*gone.length)]);
       };
     });
