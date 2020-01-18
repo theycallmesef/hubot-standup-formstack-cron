@@ -1,14 +1,15 @@
 # hubot-standup-formstack-cron
 
-A hubot script that gets formstack entries and posts the info on a cron
+A hubot script that gets formstack entries from a form for a stand up scrum meeting and posts the info on a cron or by command.
 
-See [`src/standup-formstack-cron.js`](src/standup-formstack-cron.js) for full documentation.
 
 ## Installation
 
 In hubot project repo, run:
 
-`npm install hubot-standup-formstack-cron --save`
+```
+npm install hubot-standup-formstack-cron --save
+```
 
 Then add **hubot-standup-formstack-cron** to your `external-scripts.json`:
 
@@ -19,17 +20,19 @@ Then add **hubot-standup-formstack-cron** to your `external-scripts.json`:
 ```
 
 # Configuration
-```
 
+Requires a Formstack form and access to formstack api.\
 Formstack is an online form builder (https://www.formstack.com/)
   Form required fields:
-  - Date Feild
+  - Date Field
   - Yesterday notes
   - Today Notes
   - Blocker Notes
   - First Name
   - Last Name
 
+**Environment Variables:**
+```
 HUBOT_FORMSTACK_TOKEN - (Required) Formstack API Token
 HUBOT_FORMSTACK_FORM_ID - (Required) Formstack form ID
 HUBOT_FORMSTACK_DATE_FIELD_ID - (Required) Formstack date field ID
@@ -52,6 +55,52 @@ HUBOT_FORMSTACK_STANDUP_REPORT_CRON - (Required for auto report) schedule to sen
 
 # Commands:
 ```
-hubot (CustomPrefix-)standup            List results of standup form for today
-hubot (CustomPrefix-)standup today      List who has filled out the standup form
+hubot (CustomPrefix-)standup            List all results of standup form for today
+hubot (CustomPrefix-)standup today      List all who have filled out the standup form today
+hubot (CustomPrefix-)standup <person>   List <person> results of standup form today
 ```
+
+# Sample Interaction:
+
+
+CustomPrefix = Ateam\
+Kate and Sam fill out form:
+```
+(on reminder cron)
+Hubot:        @here Time to fill out the stand up report <Link_to_form>
+              Sam has filled out the report for today
+
+Sam:          hubot Ateam-standup
+Hubot:        Kate: Jan-01-2019
+                Yesterday:
+                  - tasks
+                Today:
+                  - tasks
+                Blocker:
+                  - none
+
+              Sam:
+                Yesterday:
+                  - tasks
+                Today:
+                  - tasks
+                Blocker:
+                  - none
+
+Sam:          hubot Ateam-standup today
+Hubot:        Kate and Sam have filled out the report for today
+
+Sam:          hubot Ateam-standup Kate
+Hubot:        Kate: Jan-01-2019
+                Yesterday:
+                  - tasks
+                Today:
+                  - tasks
+                Blocker:
+                  - none
+
+```
+
+# NPM Module
+
+[https://www.npmjs.com/package/hubot-standup-formstack-cron](https://www.npmjs.com/package/hubot-standup-formstack-cron)
