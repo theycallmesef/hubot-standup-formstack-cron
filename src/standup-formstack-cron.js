@@ -201,7 +201,7 @@ module.exports = (robot) => {
 
   // ---- Form data Report for all users today ----
   function ReportStandup(room) {
-    var entry, clnmessage;
+    var entry, message;
     // Get dates needed
     Dates = CalcDate();
     DATEFORMAT = Dates[0];
@@ -215,12 +215,12 @@ module.exports = (robot) => {
         datefield = entry.data[DATEFIELD_ID].value;
         // Parse submissions and match for today
         if (datefield === DATEFORMAT) {
-          FormatClean(entry, (clnmessage) => {
-            robot.messageRoom(room, clnmessage);
+          FormatClean(entry, (message) => {
+            robot.messageRoom(room, message);
           });
         };
       };
-      if (!clnmessage) {
+      if (message === "") {
         // Funny messages hubot sends if no results are found
         var gone = [
           "Sooooo... Is everyone on holiday?",
