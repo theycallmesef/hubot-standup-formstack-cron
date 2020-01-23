@@ -118,14 +118,10 @@ module.exports = (robot) => {
     const TODAYBACK = new Date;
     // Set date lookback XX amount of days
     TODAYBACK.setDate(TODAYBACK.getDate() - DAYSBACK);
-    // create lookback date limit to filter submissions results using "min_time" param in url
-    // "min_time" param is based on eastern time
-    const MINDATE = TODAYBACK.getFullYear() + "-" + (TODAYBACK.getMonth() + 1) + "-" + TODAYBACK.getDate() + " 13:45:00";
-    // Set Month array
-    const MTHREE = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    // create formated month day year for formstack lookup (Jan 01, 2019)
-    // (`0${TODAY.getDate()}`).slice(-2) creates a two digit day
-    const DATEFORMAT = (MTHREE[TODAY.getMonth()]+" "+(`0${TODAY.getDate()}`).slice(-2)+", "+TODAY.getFullYear());
+    // Set date lookback XX amount of days and format (Jan 01, 2019)
+    const MINDATE = TODAYBACK.tz(TIMEZONE).format('ll');
+    // Format (Jan 01, 2019)
+    const DATEFORMAT = TODAY.tz(TIMEZONE).format('ll');
     // return formated dates
     if (DATEFORMAT && MINDATE) {
       return [DATEFORMAT, MINDATE];
@@ -220,7 +216,7 @@ module.exports = (robot) => {
           });
         };
       };
-      if (message === "") {
+      if (!!message) {
         // Funny messages hubot sends if no results are found
         var gone = [
           "Sooooo... Is everyone on holiday?",

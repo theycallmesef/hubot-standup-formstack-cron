@@ -20,7 +20,8 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "cron": "^1.7.2"
+    "cron": "^1.7.2",
+    "moment-timezone": ""
   },
   "peerDependencies": {
     "coffeescript": ">=1.6.2",
