@@ -10,6 +10,7 @@ In hubot project repo, run:
 ```
 npm install hubot-standup-formstack-cron --save
 ```
+Or add `"hubot-standup-formstack-cron": ""` to your package.json dependencies
 
 Then add **hubot-standup-formstack-cron** to your `external-scripts.json`:
 
@@ -37,13 +38,16 @@ HUBOT_FORMSTACK_TOKEN - (Required) Formstack API Token
 HUBOT_FORMSTACK_FORM_ID - (Required) Formstack form ID
 HUBOT_FORMSTACK_DATE_FIELD_ID - (Required) Formstack date field ID
 HUBOT_FORMSTACK_USER_FIELD_ID - (Required) Formstack User name field ID
+HUBOT_FORMSTACK_USER_LN_FIELD_ID - (Optional) Formstack User Last Name feild ID
 HUBOT_FORMSTACK_YESTERDAY_FIELD_ID - (Required) Formstack Yesterday field ID
 HUBOT_FORMSTACK_TODAY_FIELD_ID - (Required) Formstack Today field ID
 HUBOT_FORMSTACK_BLOCKER_FIELD_ID - (Required) Formstack Blocker field ID
 
 HUBOT_FORMSTACK_PREFIX - (Optional) set a prefix for multiple standup reports
 
-HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK - (Optional) Filter formstack submissions within X day ago
+HUBOT_FORMSTACK_HEAR - (Optional) Turn on or off hubot hear (default off)
+
+HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK - (Optional) Filter formstack submissions within X day ago (default 10 days)
 
 HUBOT_FORMSTACK_CHAT_ROOM_NAME - (Required for reminder and report) Chat room name for auto reminder and report
 HUBOT_FORMSTACK_TIMEZONE - (Required for reminder and report)
@@ -55,9 +59,9 @@ HUBOT_FORMSTACK_STANDUP_REPORT_CRON - (Required for auto report) schedule to sen
 
 # Commands:
 ```
-hubot (CustomPrefix-)standup            List all results of standup form for today
-hubot (CustomPrefix-)standup today      List all who have filled out the standup form today
-hubot (CustomPrefix-)standup <person>   List <person> results of standup form today
+hubot standup            List all results of standup form for today
+hubot standup today      List all who have filled out the standup form today
+hubot standup <person>   List <person> results of standup form today
 ```
 
 # Sample Interaction:

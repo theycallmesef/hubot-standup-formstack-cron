@@ -1,62 +1,71 @@
-// Description:
-//  Report standup notes that were filled in using formstack
-//
-// Author:
-//   Seth Rouggly <srouggly@apu.edu>
-//
-// Notes:
-//  Formstack is an online form builder (https://www.formstack.com/)
-//    Form required fields:
-//    - Date Feild
-//    - Yesterday notes
-//    - Today Notes
-//    - Blocker Notes
-//    - First Name
-//    - Last Name
-//
-// Configuration:
-//  HUBOT_FORMSTACK_TOKEN - (required) Formstack API Token
-//
-//  HUBOT_FORMSTACK_FORM_ID - (required) Formstack form ID
-//  HUBOT_FORMSTACK_DATE_FIELD_ID - (required) Formstack date feild ID
-//  HUBOT_FORMSTACK_USER_FIELD_ID - (required) Formstack User name feild ID
-//  HUBOT_FORMSTACK_YESTERDAY_FIELD_ID - (required) Formstack Yesterday feild ID
-//  HUBOT_FORMSTACK_TODAY_FIELD_ID - (required) Formstack Today feild ID
-//  HUBOT_FORMSTACK_BLOCKER_FIELD_ID - (required) Formstack Blocker feild ID
-//
-//  HUBOT_FORMSTACK_PREFIX - (Optional) set a prefix for multiple standup reports
-//
-//  HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK - (Optional) Formstack submissions limiter
-//
-//  HUBOT_FORMSTACK_CHAT_ROOM_NAME - (required for reminder) Chat room name for auto reminder and report
-//  HUBOT_FORMSTACK_TIMEZONE - (required for reminder)
-//
-//  HUBOT_FORMSTACK_URL - (required for reminder) url of the form for auto reminder
-//  HUBOT_FORMSTACK_REMINDER_CRON - (required for reminder) schedule a reminder to fill the form
-//  HUBOT_FORMSTACK_STANDUP_REPORT_CRON - (required for auto report) schedule to send the submissions
-//
-//
-// Commands:
-//  hubot (CustomPrefix-)standup            List results of standup form for today
-//  hubot (CustomPrefix-)standup today      List who has filled out the standup form
-//
-// Dependencies:
-//  cron
-//
-// TODO:
-//  - Univesal command (custom command)??
-//  - Return results by specific user (fs-standup kim)
+/*
+Description:
+  Report standup notes that were filled in using formstack
+
+Commands:
+  hubot standup - List results of standup form for today
+  hubot standup today - List who has filled out the standup form
+  hubot standup <USERNAME> - List results of standup form for today
+
+Author:
+  Seth Rouggly <srouggly@apu.edu>
+
+Configuration:
+  HUBOT_FORMSTACK_TOKEN - (REQUIRED) Formstack API Token
+
+  HUBOT_FORMSTACK_FORM_ID - (REQUIRED) Formstack form ID
+  HUBOT_FORMSTACK_DATE_FIELD_ID - (REQUIRED) Formstack date feild ID
+  HUBOT_FORMSTACK_USER_FIELD_ID - (REQUIRED) Formstack User name feild ID
+  HUBOT_FORMSTACK_USER_LN_FIELD_ID - (OPTIONAL) Formstack User Last Name feild ID
+  HUBOT_FORMSTACK_YESTERDAY_FIELD_ID - (REQUIRED) Formstack Yesterday feild ID
+  HUBOT_FORMSTACK_TODAY_FIELD_ID - (REQUIRED) Formstack Today feild ID
+  HUBOT_FORMSTACK_BLOCKER_FIELD_ID - (REQUIRED) Formstack Blocker feild ID
+
+  HUBOT_FORMSTACK_PREFIX - (OPTIONAL) set a prefix for multiple standup reports
+
+  HUBOT_FORMSTACK_HEAR - (Optional) Turn on or off hubot hear (default off)
+
+  HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK - (OPTIONAL) Formstack submissions limiter
+
+  HUBOT_FORMSTACK_CHAT_ROOM_NAME - (REQUIRED FOR REMINDER) Chat room name for auto reminder d report
+  HUBOT_FORMSTACK_TIMEZONE - (REQUIRED FOR REMINDER)
+
+  HUBOT_FORMSTACK_URL - (REQUIRED FOR REMINDER) url of the form for auto reminder
+  HUBOT_FORMSTACK_REMINDER_CRON - (REQUIRED FOR REMINDER) schedule a reminder to fill the form
+  HUBOT_FORMSTACK_STANDUP_REPORT_CRON - (REQUIRED FOR AUTO REPORT) schedule to send the bmissions
+
+Notes:
+  Formstack is an online form builder (https://www.formstack.com/)
+    Form required fields:
+    - Date Feild
+    - Yesterday notes
+    - Today Notes
+    - Blocker Notes
+    - First Name
+    - Last Name
+
+Dependencies:
+  "cron": ">=1.7.2"
+
+TODO:
+  - Timezone adjustment for list from day
+  - Pull Form url from api using form ID
+  - Future Feature?? multiple standup reports
+*/
 
 const FS_TOKEN = process.env.HUBOT_FORMSTACK_TOKEN || false; //(Required) Formstack API Token
 // Formstack form and feild ID's
 const FS_FORMID = process.env.HUBOT_FORMSTACK_FORM_ID; //(Required) Formstack form ID
 const DATEFIELD_ID = process.env.HUBOT_FORMSTACK_DATE_FIELD_ID; //(Required) Formstack date field ID
-const USERN_ID = process.env.HUBOT_FORMSTACK_USER_FIELD_ID; //(Required) Formstack User name field ID
+const USERFN_ID = process.env.HUBOT_FORMSTACK_USER_FIELD_ID; //(Required) Formstack User name or first field ID
+const USERLN_ID = process.env.HUBOT_FORMSTACK_USER_LN_FIELD_ID; //(Optional) Formstack User last name field ID
 const YDAY_ID = process.env.HUBOT_FORMSTACK_YESTERDAY_FIELD_ID; //(Required) Formstack Yesterday field ID
 const TDAY_ID = process.env.HUBOT_FORMSTACK_TODAY_FIELD_ID; //(Required) Formstack Today field ID
 const BLOCK_ID = process.env.HUBOT_FORMSTACK_BLOCKER_FIELD_ID; //(Required) Formstack Blocker field ID
 
 PREFIX = process.env.HUBOT_FORMSTACK_PREFIX && (PREFIX = process.env.HUBOT_FORMSTACK_PREFIX + "-") || ""; //(Optional) set a prefix for multiple standup reports
+
+const ONHEAR = process.env.HUBOT_FORMSTACK_HEAR || false; //(Optional) Turn on or off hubot hear (default off)
 
 const DAYSBACK = process.env.HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK || 10; //(Optional) filter formstack submissions within X day ago
 
@@ -69,6 +78,11 @@ const STANDUP_REPORT_CRON = process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON; //(
 const FSAPIURL = 'https://www.formstack.com/api/v2/form/' + FS_FORMID + '/submission.json'; // Building the API url
 
 module.exports = (robot) => {
+  // Push Help Commands
+  robot.commands.push(`hubot ${PREFIX}standup - List results of standup form for today`);
+  robot.commands.push(`hubot ${PREFIX}standup today - List who has filled out the standup form`);
+  robot.commands.push(`hubot ${PREFIX}standup <USERNAME> - List results of standup form for today`);
+
   // cron module
   const CronJob = require('cron').CronJob;
   // Reminder with names of those who already filled it out cron
@@ -83,6 +97,7 @@ module.exports = (robot) => {
   } else {
     robot.logger.error("Missing variable for reminder cron");
   };
+
   if (STANDUP_REPORT_CRON && ROOM) {
     // Report results cron
     STANDUP_REPORT_CRON_JOB = new CronJob(STANDUP_REPORT_CRON, function() {
@@ -94,21 +109,41 @@ module.exports = (robot) => {
     robot.logger.error("Missing variable for standup cron");
   };
   // ---- ad-hoc commands ----
-  var regx = new RegExp("^" + PREFIX + "standup(\\s)?(\\w+)?$", 'i');
-  robot.hear(regx, (msg) => {
+  var regx = "standup(?:\\s+)?(\\w+(?:\\s+\\w+)?)?$";
+  // Hear command without addressing hubot
+  if (ONHEAR) {
+    robot.hear(new RegExp("^" + PREFIX + regx, 'i'), (msg) => {
+      msg.finish();
+      BotRespond(msg);
+    });
+  };
+
+  // Respond to command by addressign hubot
+  robot.respond(new RegExp(PREFIX + regx, 'i'), (msg) => {
     msg.finish();
-    // Logic to seperate the commands
-    if (msg.match[2] && msg.match[2].toLowerCase() === "today") {
-      // fuction to list all users that filled out the form
-      FilledItOut(msg.message.room);
-    } else if (msg.match[2] && msg.match[2].toLowerCase() !== "today") {
-      // function to list a single user that filled out the form
-      SingleReport(msg.message.room, msg.match[2]);
-    } else {
-      // fuction to list results of form for today
-      ReportStandup(msg.message.room);
-    };
+    BotRespond(msg);
   });
+
+  function BotRespond(msg) {
+    var room, rxmatch;
+    room = msg.message.room;
+    rxmatch = msg.match[1];
+    // Logic to seperate the commands
+    if (rxmatch && rxmatch.toLowerCase() === "today") {
+      // fuction to list all users that filled out the form
+      FilledItOut(room);
+    } else if (rxmatch && rxmatch.toLowerCase() === "help") {
+      // function to list a single user that filled out the form
+      HelpReply(room);
+    } else if (rxmatch && (rxmatch.toLowerCase() !== "today"
+        || rxmatch.toLowerCase() !== "help")) {
+      // function to list a single user that filled out the form
+      SingleReport(room, rxmatch);
+    } else if (!rxmatch) {
+      // fuction to list results of form for today
+      ReportStandup(room);
+    };
+  };
 
   // ---- Date calculator and formater ----
   // returns formated current date "DATEFORMAT" and lookback date "MINDATE"
@@ -166,7 +201,7 @@ module.exports = (robot) => {
 
   // ---- Format and Clean message data ----
   function FormatClean(entry, clnmessage) {
-    var yday, tday, block, message;
+    var yday, tday, block, message, userfn, userln, usern;
     // fuction to clean up submission text
     function CleanTxt(value) {
       // Clean trailing spaces
@@ -181,10 +216,15 @@ module.exports = (robot) => {
 
     // set vars for text from json data
     datefield = entry.data[DATEFIELD_ID].value;
-    usern = entry.data[USERN_ID].value;
+    userfn = entry.data[USERFN_ID].value;
     yday = entry.data[YDAY_ID].value;
     tday = entry.data[TDAY_ID].value;
     block = entry.data[BLOCK_ID].value;
+    if (USERLN_ID) {
+      userln = entry.data[USERLN_ID].value;
+    };
+    // Join first and last if last exist
+    usern = [userfn, userln].filter(Boolean).join(" ");
     // assemble message
     // title with user name and date
     message = `*${usern}* - ${datefield}`;
@@ -241,7 +281,8 @@ module.exports = (robot) => {
 
   // ---- Form data Report for single user ----
   function SingleReport(room, user) {
-    var message;
+    var message, userfn, userln, usern;
+    var messageList = [];
     // Get dates needed
     Dates = CalcDate();
     DateFormat = Dates[0];
@@ -250,18 +291,26 @@ module.exports = (robot) => {
     GetFormData(room, MINDATE, (jdata) => {
       // loop filtered submissions
       for (entry of jdata.submissions) {
-        const usern = entry.data[USERN_ID].value;
-        const datefield = entry.data[DATEFIELD_ID].value;
+        userfn = entry.data[USERFN_ID].value;
+        datefield = entry.data[DATEFIELD_ID].value;
+        if (USERLN_ID) {
+          userln = entry.data[USERLN_ID].value;
+        };
+        // Join first and last if last exist
+        usern = [userfn, userln].filter(Boolean).join(" ");
         // build array of usernames for today
         if (datefield === DateFormat) {
           // look up user
-          if (usern.toLowerCase() === user.toLowerCase()) {
+          if (usern.toLowerCase() === user.toLowerCase()
+              || userfn.toLowerCase() === user.toLowerCase()
+              || userln.toLowerCase() === user.toLowerCase()) {
             FormatClean(entry, (RtrnMessage) => {
-              message = RtrnMessage;
+              messageList.push(RtrnMessage);
             });
           };
         };
       };
+      message = messageList.join("\n");
       if (!message) {
         message = `I'm not able to find ${user}\n`;
         FilledItOut(room);
@@ -272,6 +321,7 @@ module.exports = (robot) => {
 
   // ---- List users who filled out report today ----
   function FilledItOut(room) {
+    var message, userfn, userln, usern;
     // Get dates needed
     Dates = CalcDate();
     DateFormat = Dates[0];
@@ -281,8 +331,13 @@ module.exports = (robot) => {
       var users = [];
       // loop filtered submissions
       for (entry of jdata.submissions) {
-        const usern = entry.data[USERN_ID].value;
-        const datefield = entry.data[DATEFIELD_ID].value;
+        userfn = entry.data[USERFN_ID].value;
+         datefield = entry.data[DATEFIELD_ID].value;
+        if (USERLN_ID) {
+           userln = entry.data[USERLN_ID].value;
+        };
+        // Join first and last if last exist
+        usern = [userfn, userln].filter(Boolean).join(" ");
         // build array of usernames for today
         if (datefield === DateFormat) {
           users.push(usern);
@@ -304,5 +359,16 @@ module.exports = (robot) => {
       // send message to room
       robot.messageRoom(room, message);
     });
+  };
+
+  function HelpReply(room) {
+    var message = "";
+    if (ONHEAR) {
+          message += `You can @${robot.name} or I'll listen for *${PREFIX}standup*\n`
+    }
+    message += `${robot.name} ${PREFIX}standup - List results of standup form for today\n`;
+    message += `${robot.name} ${PREFIX}standup today - List who has filled out the standup form\n`;
+    message +=`${robot.name} ${PREFIX}standup <USERNAME> - List results of standup form for today`;
+    robot.messageRoom(room, message);
   };
 };
