@@ -12,27 +12,26 @@ Author:
 
 Configuration:
   HUBOT_FORMSTACK_TOKEN - (REQUIRED) Formstack API Token
-
   HUBOT_FORMSTACK_FORM_ID - (REQUIRED) Formstack form ID
-  HUBOT_FORMSTACK_DATE_FIELD_ID - (REQUIRED) Formstack date feild ID
-  HUBOT_FORMSTACK_USER_FIELD_ID - (REQUIRED) Formstack User name feild ID
-  HUBOT_FORMSTACK_USER_LN_FIELD_ID - (OPTIONAL) Formstack User Last Name feild ID
-  HUBOT_FORMSTACK_YESTERDAY_FIELD_ID - (REQUIRED) Formstack Yesterday feild ID
-  HUBOT_FORMSTACK_TODAY_FIELD_ID - (REQUIRED) Formstack Today feild ID
-  HUBOT_FORMSTACK_BLOCKER_FIELD_ID - (REQUIRED) Formstack Blocker feild ID
+
+  Formstack form MUST have feild with the following terms (in any order).
+  The fields do not need to be verbatim and are not case sensitive.
+  "Date of report" would work for the "Date" feild:
+    'Date' () - (REQUIRED) Formstack date the report is for
+    'Yesterday' - (REQUIRED) Formstack tasks from Yesterday
+    'Today' - (REQUIRED) Formstack tasks for Today
+    'Blocker' or 'Impeding' - (REQUIRED) Blockers or items keeping work on tasks from happening
+    'first name' - (REQUIRED) Formstack User (first or other) name
+    'last name' - (OPTIONAL) Formstack User Last Name
 
   HUBOT_FORMSTACK_PREFIX - (OPTIONAL) set a prefix for multiple standup reports
-
   HUBOT_FORMSTACK_HEAR - (Optional) Turn on or off hubot hear (default off)
-
   HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK - (OPTIONAL) Formstack submissions limiter
-
   HUBOT_FORMSTACK_CHAT_ROOM_NAME - (REQUIRED FOR REMINDER) Chat room name for auto reminder d report
   HUBOT_FORMSTACK_TIMEZONE - (REQUIRED FOR REMINDER)
 
-  HUBOT_FORMSTACK_URL - (REQUIRED FOR REMINDER) url of the form for auto reminder
   HUBOT_FORMSTACK_REMINDER_CRON - (REQUIRED FOR REMINDER) schedule a reminder to fill the form
-  HUBOT_FORMSTACK_STANDUP_REPORT_CRON - (REQUIRED FOR AUTO REPORT) schedule to send the bmissions
+  HUBOT_FORMSTACK_STANDUP_REPORT_CRON - (REQUIRED FOR AUTO REPORT) schedule to send the submissions
 
 Notes:
   Formstack is an online form builder (https://www.formstack.com/)
@@ -56,12 +55,12 @@ TODO:
 const FS_TOKEN = process.env.HUBOT_FORMSTACK_TOKEN || false; //(Required) Formstack API Token
 // Formstack form and feild ID's
 const FS_FORMID = process.env.HUBOT_FORMSTACK_FORM_ID; //(Required) Formstack form ID
-const DATEFIELD_ID = process.env.HUBOT_FORMSTACK_DATE_FIELD_ID; //(Required) Formstack date field ID
-const USERFN_ID = process.env.HUBOT_FORMSTACK_USER_FIELD_ID; //(Required) Formstack User name or first field ID
-const USERLN_ID = process.env.HUBOT_FORMSTACK_USER_LN_FIELD_ID; //(Optional) Formstack User last name field ID
-const YDAY_ID = process.env.HUBOT_FORMSTACK_YESTERDAY_FIELD_ID; //(Required) Formstack Yesterday field ID
-const TDAY_ID = process.env.HUBOT_FORMSTACK_TODAY_FIELD_ID; //(Required) Formstack Today field ID
-const BLOCK_ID = process.env.HUBOT_FORMSTACK_BLOCKER_FIELD_ID; //(Required) Formstack Blocker field ID
+//const DATEFIELD_ID = process.env.HUBOT_FORMSTACK_DATE_FIELD_ID; //(Required) Formstack date field ID
+//const USERFN_ID = process.env.HUBOT_FORMSTACK_USER_FIELD_ID; //(Required) Formstack User name or first field ID
+//const USERLN_ID = process.env.HUBOT_FORMSTACK_USER_LN_FIELD_ID; //(Optional) Formstack User last name field ID
+//const YDAY_ID = process.env.HUBOT_FORMSTACK_YESTERDAY_FIELD_ID; //(Required) Formstack Yesterday field ID
+//const TDAY_ID = process.env.HUBOT_FORMSTACK_TODAY_FIELD_ID; //(Required) Formstack Today field ID
+//const BLOCK_ID = process.env.HUBOT_FORMSTACK_BLOCKER_FIELD_ID; //(Required) Formstack Blocker field ID
 
 PREFIX = process.env.HUBOT_FORMSTACK_PREFIX && (PREFIX = process.env.HUBOT_FORMSTACK_PREFIX + "-") || ""; //(Optional) set a prefix for multiple standup reports
 
@@ -72,10 +71,12 @@ const DAYSBACK = process.env.HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK || 10; //(Opti
 const ROOM = process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME; //(Required for reminder and report) Chat room name for auto reminder and report
 const TIMEZONE = process.env.HUBOT_FORMSTACK_TIMEZONE || 'America/New_York'; //(Optional for reminder and report) Timezone for cron
 
-const FS_URL = process.env.HUBOT_FORMSTACK_URL || ""; //(Optional for reminder) url of the form for auto reminder
+//const FS_URL = process.env.HUBOT_FORMSTACK_URL || ""; //(Optional for reminder) url of the form for auto reminder
 const REMINDER_CRON = process.env.HUBOT_FORMSTACK_REMINDER_CRON; //(Required for reminder) schedule a reminder to fill the form
 const STANDUP_REPORT_CRON = process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON; //(Required for auto report) schedule to send the submissions
-const FSAPIURL = 'https://www.formstack.com/api/v2/form/' + FS_FORMID + '/submission.json'; // Building the API url
+const FSAPIURL = 'https://www.formstack.com/api/v2/form/' + FS_FORMID; // Building the API url
+const FSAPIURL_SUB = FSAPIURL + '/submission.json'; // Building the API url
+const FSFORM = FSAPIURL + '.json'; // Building the API url
 
 module.exports = (robot) => {
   // Push Help Commands
@@ -108,6 +109,44 @@ module.exports = (robot) => {
   } else {
     robot.logger.error("Missing variable for standup cron");
   };
+
+  // Get Form info from formstack api
+  robot.http(FSFORM).get()((err, res, body) => {
+    if (err) {
+      // send error message to room
+      robot.messageRoom(room, `I was not able to connect to Formstack: ${res}`);
+      robot.logger.error(`Error connecting to formstack: ${res}`);
+      return;
+    } else {
+      jdata = JSON.parse(body);
+      if (jdata.error) {
+        robot.messageRoom(room, "Somethings not right, have my owner take a look at my logs");
+        robot.logger.error(`Error retreving data: ${jdata.error}`);
+      };
+      // Get feild IDs from Formstack form
+      FS_URL = jdata.url;
+      for (field of jdata.fields) {
+        if field.label.includes.toLowerCase("date"){
+          //robot.brain.set(FS_STANDUP);
+          DATEFIELD_ID = field.id;
+        } else if (field.label.includes.toLowerCase("yesterday")) {
+          YDAY_ID = field.id;
+        } else if (field.label.includes.toLowerCase("today")) {
+          TDAY_ID = field.id;
+        } else if (field.label.includes.toLowerCase("impeding")) {
+           BLOCK_ID = field.id;
+        } else if (field.label.includes.toLowerCase("blocking")) {
+           BLOCK_ID = field.id;
+        } else if (field.label.includes.toLowerCase("first name")) {
+           USERFN_ID = field.id;
+        } else if (field.label.includes.toLowerCase("last name")) {
+          USERLN_ID = field.id;
+        };
+      };
+    };
+  });
+
+
   // ---- ad-hoc commands ----
   var regx = "standup(?:\\s+)?(\\w+(?:\\s+\\w+)?)?$";
   // Hear command without addressing hubot
@@ -117,7 +156,6 @@ module.exports = (robot) => {
       BotRespond(msg);
     });
   };
-
   // Respond to command by addressign hubot
   robot.respond(new RegExp(PREFIX + regx, 'i'), (msg) => {
     msg.finish();
@@ -179,7 +217,7 @@ module.exports = (robot) => {
       return;
     };
     // formstack url with form ID, token (oauth_token) and date range filter (min_time)
-    const FSURL = `${FSAPIURL}?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`;
+    const FSURL = `${FSAPIURL_SUB}?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`;
     // Get json of form submissions
     robot.http(FSURL).get()((err, res, body) => {
       if (err) {
