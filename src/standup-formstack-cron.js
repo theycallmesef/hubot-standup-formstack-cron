@@ -52,15 +52,9 @@ TODO:
   - Future Feature?? multiple standup reports
 */
 
-const FS_TOKEN = process.env.HUBOT_FORMSTACK_TOKEN || false; //(Required) Formstack API Token
+const FS_TOKEN = process.env.HUBOT_FORMSTACK_TOKEN; //(Required) Formstack API Token
 // Formstack form and feild ID's
 const FS_FORMID = process.env.HUBOT_FORMSTACK_FORM_ID; //(Required) Formstack form ID
-//const DATEFIELD_ID = process.env.HUBOT_FORMSTACK_DATE_FIELD_ID; //(Required) Formstack date field ID
-//const USERFN_ID = process.env.HUBOT_FORMSTACK_USER_FIELD_ID; //(Required) Formstack User name or first field ID
-//const USERLN_ID = process.env.HUBOT_FORMSTACK_USER_LN_FIELD_ID; //(Optional) Formstack User last name field ID
-//const YDAY_ID = process.env.HUBOT_FORMSTACK_YESTERDAY_FIELD_ID; //(Required) Formstack Yesterday field ID
-//const TDAY_ID = process.env.HUBOT_FORMSTACK_TODAY_FIELD_ID; //(Required) Formstack Today field ID
-//const BLOCK_ID = process.env.HUBOT_FORMSTACK_BLOCKER_FIELD_ID; //(Required) Formstack Blocker field ID
 
 PREFIX = process.env.HUBOT_FORMSTACK_PREFIX && (PREFIX = process.env.HUBOT_FORMSTACK_PREFIX + "-") || ""; //(Optional) set a prefix for multiple standup reports
 
@@ -75,8 +69,7 @@ const TIMEZONE = process.env.HUBOT_FORMSTACK_TIMEZONE || 'America/New_York'; //(
 const REMINDER_CRON = process.env.HUBOT_FORMSTACK_REMINDER_CRON; //(Required for reminder) schedule a reminder to fill the form
 const STANDUP_REPORT_CRON = process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON; //(Required for auto report) schedule to send the submissions
 const FSAPIURL = 'https://www.formstack.com/api/v2/form/' + FS_FORMID; // Building the API url
-const FSAPIURL_SUB = FSAPIURL + '/submission.json'; // Building the API url
-const FSFORM = FSAPIURL + '.json'; // Building the API url
+var FS_URL, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID, USERLN_ID;
 
 module.exports = (robot) => {
   // Push Help Commands
@@ -110,42 +103,65 @@ module.exports = (robot) => {
     robot.logger.error("Missing variable for standup cron");
   };
 
-  // Get Form info from formstack api
-  robot.http(FSFORM).get()((err, res, body) => {
-    if (err) {
-      // send error message to room
-      robot.messageRoom(room, `I was not able to connect to Formstack: ${res}`);
-      robot.logger.error(`Error connecting to formstack: ${res}`);
-      return;
-    } else {
-      jdata = JSON.parse(body);
-      if (jdata.error) {
-        robot.messageRoom(room, "Somethings not right, have my owner take a look at my logs");
-        robot.logger.error(`Error retreving data: ${jdata.error}`);
-      };
+  // Check formstack token is set
+  if (!FS_TOKEN) {
+    robot.logger.error("Missing formstack token");
+  }
+  if (!FS_FORMID) {
+    robot.logger.error("Missing formstack ID");
+  }
+
+  // Get fields if the form ID does not match brain
+  if (FS_FORMID !== robot.brain.get(FS_FORMID)){
+    getFields();
+  }
+
+  // Get Form Vars from redis brain
+  FS_URL = robot.brain.get("FS_URL");
+  DATEFIELD_ID = robot.brain.get("DATEFIELD_ID");
+  YDAY_ID = robot.brain.get("YDAY_ID");
+  TDAY_ID = robot.brain.get("TDAY_ID");
+  BLOCK_ID = robot.brain.get("BLOCK_ID");
+  USERFN_ID = robot.brain.get("USERFN_ID");
+  USERLN_ID = robot.brain.get("USERLN_ID");
+  // Check vars for empty or null
+  if (FS_URL || !DATEFIELD_ID || !YDAY_ID || !TDAY_ID || !BLOCK_ID || !USERFN_ID || !USERLN_ID) {
+    getFields();
+  };
+
+  function getFields() {
+    robot.brain.set("FS_FORMID", FS_FORMID);
+    // set api url
+    FSURL = `${FSAPIURL}.json?oauth_token=${FS_TOKEN}`;
+    // Get Form info from formstack api
+    GetFormData(room, FSURL, (jdata) => {
       // Get feild IDs from Formstack form
-      FS_URL = jdata.url;
+      robot.brain.set("FS_URL", jdata.url);
       for (field of jdata.fields) {
-        if field.label.includes.toLowerCase("date"){
-          //robot.brain.set(FS_STANDUP);
-          DATEFIELD_ID = field.id;
-        } else if (field.label.includes.toLowerCase("yesterday")) {
-          YDAY_ID = field.id;
-        } else if (field.label.includes.toLowerCase("today")) {
-          TDAY_ID = field.id;
-        } else if (field.label.includes.toLowerCase("impeding")) {
-           BLOCK_ID = field.id;
-        } else if (field.label.includes.toLowerCase("blocking")) {
-           BLOCK_ID = field.id;
-        } else if (field.label.includes.toLowerCase("first name")) {
-           USERFN_ID = field.id;
-        } else if (field.label.includes.toLowerCase("last name")) {
-          USERLN_ID = field.id;
+        if (field.label == null){
+          Continue
+        }
+        if (field.label.toLowerCase().includes("date")) {
+          robot.brain.set("DATEFIELD_ID", field.id);
+          Continue
+        } else if (field.label.toLowerCase().includes("yesterday")) {
+          robot.brain.set("YDAY_ID", field.id);
+          Continue
+        } else if (field.label.toLowerCase().includes("today")) {
+          robot.brain.set("TDAY_ID", field.id);
+          Continue
+        } else if (field.label.toLowerCase().includes("impeding") || field.label.toLowerCase().includes("blocking")) {
+          robot.brain.set("BLOCK_ID", field.id);
+          Continue
+        } else if (field.label.toLowerCase().includes("first name")) {
+          robot.brain.set("USERFN_ID", field.id);
+          Continue
+        } else if (field.label.toLowerCase().includes("last name")) {
+          robot.brain.set("USERLN_ID", field.id);
         };
       };
-    };
-  });
-
+    });
+  };
 
   // ---- ad-hoc commands ----
   var regx = "standup(?:\\s+)?(\\w+(?:\\s+\\w+)?)?$";
@@ -207,17 +223,8 @@ module.exports = (robot) => {
     };
   };
   // ---- Return json from formstack web request ----
-  // "MINDATE" is passed in, "jbody" is the return
-  function GetFormData(room, MINDATE, jbody) {
-    // Check formstack token is set
-    if (FS_TOKEN === false) {
-      // send error message to room to fix formstack api token
-      robot.messageRoom(room, "um... so, according to my records a formstack token was not set up.\nYou'll need to have that done before I can I can retrieve the data");
-      robot.logger.error("Missing formstack token");
-      return;
-    };
-    // formstack url with form ID, token (oauth_token) and date range filter (min_time)
-    const FSURL = `${FSAPIURL_SUB}?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`;
+  // "room" and "FSURL" are passed in, "jbody" is the return
+  function GetFormData(room, FSURL, jbody) {
     // Get json of form submissions
     robot.http(FSURL).get()((err, res, body) => {
       if (err) {
@@ -279,14 +286,16 @@ module.exports = (robot) => {
 
   // ---- Form data Report for all users today ----
   function ReportStandup(room) {
-    var entry, message;
+    var entry, message, FSURL;
     // Get dates needed
     Dates = CalcDate();
     DATEFORMAT = Dates[0];
     MINDATE = Dates[1];
+    // formstack url with form ID, token (oauth_token) and date range filter (min_time)
+    FSURL = `${FSAPIURL}/submission.json?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`;
 
     // Callback return function of pased json from url
-    GetFormData(room, MINDATE, (jdata) => {
+    GetFormData(room, FSURL, (jdata) => {
       // loop filtered submissions
       for (entry of jdata.submissions) {
         // get date in form
@@ -319,12 +328,13 @@ module.exports = (robot) => {
 
   // ---- Form data Report for single user ----
   function SingleReport(room, user) {
-    var message, userfn, userln, usern;
+    var message, userfn, userln, usern, FSURL;
     var messageList = [];
     // Get dates needed
     Dates = CalcDate();
     DateFormat = Dates[0];
     MINDATE = Dates[1];
+    FSURL = `${FSAPIURL}/submission.json?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`;
     // Callback return function of pased json from url
     GetFormData(room, MINDATE, (jdata) => {
       // loop filtered submissions
@@ -364,8 +374,9 @@ module.exports = (robot) => {
     Dates = CalcDate();
     DateFormat = Dates[0];
     MINDATE = Dates[1];
+    FSURL = `${FSAPIURL}/submission.json?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`;
     // Callback return function of pased json from url
-    GetFormData(room, MINDATE, (jdata) => {
+    GetFormData(room, FSURL, (jdata) => {
       var users = [];
       // loop filtered submissions
       for (entry of jdata.submissions) {
@@ -402,7 +413,7 @@ module.exports = (robot) => {
   function HelpReply(room) {
     var message = "";
     if (ONHEAR) {
-          message += `You can @${robot.name} or I'll listen for *${PREFIX}standup*\n`
+      message += `You can @${robot.name} or I'll listen for *${PREFIX}standup*\n`
     }
     message += `${robot.name} ${PREFIX}standup - List results of standup form for today\n`;
     message += `${robot.name} ${PREFIX}standup today - List who has filled out the standup form\n`;
