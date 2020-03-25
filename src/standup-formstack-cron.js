@@ -112,52 +112,47 @@ module.exports = (robot) => {
   }
 
   // Get fields if the form ID does not match brain
-  if (FS_FORMID !== robot.brain.get(FS_FORMID)){
+  if (!robot.brain.exists(`FS_${ROOM}:FS_FORMID`)){
     getFields();
   }
 
   // Get Form Vars from redis brain
-  FS_URL = robot.brain.get("FS_URL");
-  DATEFIELD_ID = robot.brain.get("DATEFIELD_ID");
-  YDAY_ID = robot.brain.get("YDAY_ID");
-  TDAY_ID = robot.brain.get("TDAY_ID");
-  BLOCK_ID = robot.brain.get("BLOCK_ID");
-  USERFN_ID = robot.brain.get("USERFN_ID");
-  USERLN_ID = robot.brain.get("USERLN_ID");
+  FS_URL = robot.brain.get(`FS_${ROOM}:FS_URL`);
+  FS_FORMID = robot.brain.get(`FS_${ROOM}:FS_FORMID`);
+  DATEFIELD_ID = robot.brain.get(`FS_${ROOM}:DATEFIELD_ID`);
+  YDAY_ID = robot.brain.get(`FS_${ROOM}:YDAY_ID`);
+  TDAY_ID = robot.brain.get(`FS_${ROOM}:TDAY_ID`);
+  BLOCK_ID = robot.brain.get(`FS_${ROOM}:BLOCK_ID`);
+  USERFN_ID = robot.brain.get(`FS_${ROOM}:USERFN_ID`);
+  USERLN_ID = robot.brain.get(`FS_${ROOM}:USERLN_ID`);
   // Check vars for empty or null
-  if (FS_URL || !DATEFIELD_ID || !YDAY_ID || !TDAY_ID || !BLOCK_ID || !USERFN_ID || !USERLN_ID) {
+  if (!FS_URL || !FS_FORMID || !DATEFIELD_ID || !YDAY_ID || !TDAY_ID || !BLOCK_ID || !USERFN_ID || !USERLN_ID) {
     getFields();
   };
 
   function getFields() {
-    robot.brain.set("FS_FORMID", FS_FORMID);
+    robot.brain.set(`FS_${ROOM}:FS_FORMID`, FS_FORMID);
     // set api url
     FSURL = `${FSAPIURL}.json?oauth_token=${FS_TOKEN}`;
     // Get Form info from formstack api
-    GetFormData(room, FSURL, (jdata) => {
+    GetFormData(ROOM, FSURL, (jdata) => {
       // Get feild IDs from Formstack form
-      robot.brain.set("FS_URL", jdata.url);
+      robot.brain.set(`FS_${ROOM}:FS_URL`, jdata.url);
       for (field of jdata.fields) {
         if (field.label == null){
-          Continue
         }
         if (field.label.toLowerCase().includes("date")) {
-          robot.brain.set("DATEFIELD_ID", field.id);
-          Continue
+          robot.brain.set(`FS_${ROOM}:DATEFIELD_ID`, field.id);
         } else if (field.label.toLowerCase().includes("yesterday")) {
-          robot.brain.set("YDAY_ID", field.id);
-          Continue
+          robot.brain.set(`FS_${ROOM}:YDAY_ID`, field.id);
         } else if (field.label.toLowerCase().includes("today")) {
-          robot.brain.set("TDAY_ID", field.id);
-          Continue
+          robot.brain.set(`FS_${ROOM}:TDAY_ID`, field.id);
         } else if (field.label.toLowerCase().includes("impeding") || field.label.toLowerCase().includes("blocking")) {
-          robot.brain.set("BLOCK_ID", field.id);
-          Continue
+          robot.brain.set(`FS_${ROOM}:BLOCK_ID`, field.id);
         } else if (field.label.toLowerCase().includes("first name")) {
-          robot.brain.set("USERFN_ID", field.id);
-          Continue
+          robot.brain.set(`FS_${ROOM}:USERFN_ID`, field.id);
         } else if (field.label.toLowerCase().includes("last name")) {
-          robot.brain.set("USERLN_ID", field.id);
+          robot.brain.set(`FS_${ROOM}:USERLN_ID`, field.id);
         };
       };
     });
