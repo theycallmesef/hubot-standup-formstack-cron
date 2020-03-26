@@ -20,6 +20,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
+    "hubot-redis-brain": "",
     "cron": ">=1.7.2"
   },
   "peerDependencies": {

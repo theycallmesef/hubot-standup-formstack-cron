@@ -48,8 +48,9 @@ Dependencies:
 
 TODO:
   - Timezone adjustment for list from day
-  - Pull Form url from api using form ID
   - Future Feature?? multiple standup reports
+    - based room, setup by hubot and linked to room
+    - add standup command that would capture room and form ID
 */
 
 const FS_TOKEN = process.env.HUBOT_FORMSTACK_TOKEN; //(Required) Formstack API Token
