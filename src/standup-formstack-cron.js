@@ -44,6 +44,7 @@ Notes:
     - Last Name
 
 Dependencies:
+  "hubot-redis-brain": "",
   "cron": ">=1.7.2"
 
 TODO:
@@ -55,9 +56,9 @@ TODO:
 
 const FS_TOKEN = process.env.HUBOT_FORMSTACK_TOKEN; //(Required) Formstack API Token
 // Formstack form and feild ID's
-const FS_FORMID = process.env.HUBOT_FORMSTACK_FORM_ID; //(Required) Formstack form ID
+var FS_FORMID = process.env.HUBOT_FORMSTACK_FORM_ID; //(Required) Formstack form ID
 
-PREFIX = process.env.HUBOT_FORMSTACK_PREFIX && (PREFIX = process.env.HUBOT_FORMSTACK_PREFIX + "-") || ""; //(Optional) set a prefix for multiple standup reports
+var PREFIX = process.env.HUBOT_FORMSTACK_PREFIX && (PREFIX = process.env.HUBOT_FORMSTACK_PREFIX + "-") || ""; //(Optional) set a prefix for multiple standup reports
 
 const ONHEAR = process.env.HUBOT_FORMSTACK_HEAR || false; //(Optional) Turn on or off hubot hear (default off)
 
@@ -66,7 +67,6 @@ const DAYSBACK = process.env.HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK || 10; //(Opti
 const ROOM = process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME; //(Required for reminder and report) Chat room name for auto reminder and report
 const TIMEZONE = process.env.HUBOT_FORMSTACK_TIMEZONE || 'America/New_York'; //(Optional for reminder and report) Timezone for cron
 
-//const FS_URL = process.env.HUBOT_FORMSTACK_URL || ""; //(Optional for reminder) url of the form for auto reminder
 const REMINDER_CRON = process.env.HUBOT_FORMSTACK_REMINDER_CRON; //(Required for reminder) schedule a reminder to fill the form
 const STANDUP_REPORT_CRON = process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON; //(Required for auto report) schedule to send the submissions
 const FSAPIURL = 'https://www.formstack.com/api/v2/form/' + FS_FORMID; // Building the API url
@@ -113,7 +113,7 @@ module.exports = (robot) => {
   }
 
   // Get fields if the form ID does not match brain
-  if (!robot.brain.exists(`FS_${ROOM}:FS_FORMID`)){
+  if (!robot.brain.get(`FS_${ROOM}:FS_FORMID`)){
     getFields();
   }
 
