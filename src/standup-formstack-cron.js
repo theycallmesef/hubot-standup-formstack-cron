@@ -112,25 +112,66 @@ module.exports = (robot) => {
     robot.logger.error("Missing formstack ID");
   }
 
+
+  //TEST New Vars
+
   // Get fields if the form ID does not match brain
   if (!robot.brain.get(`FS_${ROOM}:FS_FORMID`)){
+    robot.logger.info("Creating redis space for form");
     getFields();
   }
 
-  // Get Form Vars from redis brain
-  FS_URL = robot.brain.get(`FS_${ROOM}:FS_URL`);
-  FS_FORMID = robot.brain.get(`FS_${ROOM}:FS_FORMID`);
-  DATEFIELD_ID = robot.brain.get(`FS_${ROOM}:DATEFIELD_ID`);
-  YDAY_ID = robot.brain.get(`FS_${ROOM}:YDAY_ID`);
-  TDAY_ID = robot.brain.get(`FS_${ROOM}:TDAY_ID`);
-  BLOCK_ID = robot.brain.get(`FS_${ROOM}:BLOCK_ID`);
-  USERFN_ID = robot.brain.get(`FS_${ROOM}:USERFN_ID`);
-  USERLN_ID = robot.brain.get(`FS_${ROOM}:USERLN_ID`);
-  // Check vars for empty or null
-  if (!FS_URL || !FS_FORMID || !DATEFIELD_ID || !YDAY_ID || !TDAY_ID || !BLOCK_ID || !USERFN_ID || !USERLN_ID) {
-    getFields();
+  // Array of redis formstack vars
+  var FS_RD_ARR = [robot.brain.get(`FS_${ROOM}:FS_URL`), robot.brain.get(`FS_${ROOM}:FS_FORMID`), robot.brain.get(`FS_${ROOM}:DATEFIELD_ID`), robot.brain.get(`FS_${ROOM}:YDAY_ID`), robot.brain.get(`FS_${ROOM}:TDAY_ID`), robot.brain.get(`FS_${ROOM}:BLOCK_ID`), robot.brain.get(`FS_${ROOM}:USERFN_ID`), robot.brain.get(`FS_${ROOM}:USERLN_ID`)];
+  // Check array for null
+  var FS_RD_ARR_NULL = FS_RD_ARR.some(function (el) {
+      return el === null;
+  });
+  // Save api data to redis if null
+  var cnt = 0;
+  while (FS_RD_ARR_NULL) {
+    // Get redis info if null
+    if (cnt < 2) {
+      getFields();
+    } else {
+      robot.logger.error("At least one Redis var is empty after multiple attempts");
+      throw "At least one Redis var is empty after multiple attempts";
+    };
+    cnt++;
+  }
+
+  // Array of formstack vars
+  var FS_ARR = [FS_URL, FS_FORMID, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID, USERLN_ID];
+  // check array for null
+  var FS_ARR_NULL = FS_ARR.some(function (el) {
+      return el === null;
+  });
+  // Set loval vars from redis if null
+  var cnt = 0;
+  while (FS_ARR_NULL) {
+    if (cnt < 2) {
+      // Get Form Vars from redis brain
+      FS_URL = robot.brain.get(`FS_${ROOM}:FS_URL`);
+      FS_FORMID = robot.brain.get(`FS_${ROOM}:FS_FORMID`);
+      DATEFIELD_ID = robot.brain.get(`FS_${ROOM}:DATEFIELD_ID`);
+      YDAY_ID = robot.brain.get(`FS_${ROOM}:YDAY_ID`);
+      TDAY_ID = robot.brain.get(`FS_${ROOM}:TDAY_ID`);
+      BLOCK_ID = robot.brain.get(`FS_${ROOM}:BLOCK_ID`);
+      USERFN_ID = robot.brain.get(`FS_${ROOM}:USERFN_ID`);
+      USERLN_ID = robot.brain.get(`FS_${ROOM}:USERLN_ID`);
+    } else {
+      robot.logger.error("At least one var is empty after multiple attempts");
+      throw "At least one Redis var is empty after multiple attempts";
+    };
+    cnt++;
   };
 
+// End Test
+
+  // DEGUG
+  robot.logger.error("Values are "+FS_URL+" "+FS_FORMID+" "+DATEFIELD_ID+" "+YDAY_ID+" "+TDAY_ID+" "+BLOCK_ID+" "+USERFN_ID+" "+USERLN_ID);
+
+  // Call Formstack api to collect form feild id's
   function getFields() {
     robot.brain.set(`FS_${ROOM}:FS_FORMID`, FS_FORMID);
     // set api url
@@ -139,11 +180,15 @@ module.exports = (robot) => {
     GetFormData(ROOM, FSURL, (jdata) => {
       // Get feild IDs from Formstack form
       robot.brain.set(`FS_${ROOM}:FS_URL`, jdata.url);
+          // DEBUG
+          robot.logger.error("fs url is "+jdata.url+" redis data "+robot.brain.get(`FS_${ROOM}:FS_URL`));
+
       for (field of jdata.fields) {
-        if (field.label == null){
-        }
         if (field.label.toLowerCase().includes("date")) {
           robot.brain.set(`FS_${ROOM}:DATEFIELD_ID`, field.id);
+              // DEBUG
+              robot.logger.error("fs data is "+field.id+" redis data "+robot.brain.get(`FS_${ROOM}:DATEFIELD_ID`));
+
         } else if (field.label.toLowerCase().includes("yesterday")) {
           robot.brain.set(`FS_${ROOM}:YDAY_ID`, field.id);
         } else if (field.label.toLowerCase().includes("today")) {
@@ -199,18 +244,18 @@ module.exports = (robot) => {
   // returns formated current date "DATEFORMAT" and lookback date "MINDATE"
   function CalcDate() {
     // TODO set date to match timezone var
-    const TODAY = new Date;
-    const TODAYBACK = new Date;
+    var TODAY = new Date;
+    var TODAYBACK = new Date;
     // Set date lookback XX amount of days
     TODAYBACK.setDate(TODAYBACK.getDate() - DAYSBACK);
     // create lookback date limit to filter submissions results using "min_time" param in url
     // "min_time" param is based on eastern time
-    const MINDATE = TODAYBACK.getFullYear() + "-" + (TODAYBACK.getMonth() + 1) + "-" + TODAYBACK.getDate() + " 13:45:00";
+    var MINDATE = TODAYBACK.getFullYear() + "-" + (TODAYBACK.getMonth() + 1) + "-" + TODAYBACK.getDate() + " 13:45:00";
     // Set Month array
-    const MTHREE = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var MTHREE = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     // create formated month day year for formstack lookup (Jan 01, 2019)
     // (`0${TODAY.getDate()}`).slice(-2) creates a two digit day
-    const DATEFORMAT = (MTHREE[TODAY.getMonth()]+" "+(`0${TODAY.getDate()}`).slice(-2)+", "+TODAY.getFullYear());
+    var DATEFORMAT = (MTHREE[TODAY.getMonth()]+" "+(`0${TODAY.getDate()}`).slice(-2)+", "+TODAY.getFullYear());
     // return formated dates
     if (DATEFORMAT && MINDATE) {
       return [DATEFORMAT, MINDATE];
@@ -219,10 +264,10 @@ module.exports = (robot) => {
     };
   };
   // ---- Return json from formstack web request ----
-  // "room" and "FSURL" are passed in, "jbody" is the return
-  function GetFormData(room, FSURL, jbody) {
+  // "room" and "fsurl" are passed in, "jbody" is the return
+  function GetFormData(room, fsurl, jbody) {
     // Get json of form submissions
-    robot.http(FSURL).get()((err, res, body) => {
+    robot.http(fsurl).get()((err, res, body) => {
       if (err) {
         // send error message to room
         robot.messageRoom(room, `I was not able to connect to Formstack: ${res}`);
