@@ -115,11 +115,12 @@ module.exports = (robot) => {
 
   //TEST New Vars
 
+
   // Get fields if the form ID does not match brain
-  if (!robot.brain.get(`FS_${ROOM}:FS_FORMID`)){
-    robot.logger.info("Creating redis space for form");
-    getFields();
-  }
+  // if (!robot.brain.get(`FS_${ROOM}:FS_FORMID`)){
+  //   robot.logger.info("Creating redis space for form");
+  //   getFields();
+  // }
 
   // Array of redis formstack vars
   var FS_RD_ARR = [robot.brain.get(`FS_${ROOM}:FS_URL`), robot.brain.get(`FS_${ROOM}:FS_FORMID`), robot.brain.get(`FS_${ROOM}:DATEFIELD_ID`), robot.brain.get(`FS_${ROOM}:YDAY_ID`), robot.brain.get(`FS_${ROOM}:TDAY_ID`), robot.brain.get(`FS_${ROOM}:BLOCK_ID`), robot.brain.get(`FS_${ROOM}:USERFN_ID`), robot.brain.get(`FS_${ROOM}:USERLN_ID`)];
@@ -132,10 +133,14 @@ module.exports = (robot) => {
   while (FS_RD_ARR_NULL) {
     // Get redis info if null
     if (cnt < 2) {
-      getFields();
+      getFields2();
+      // Check array for null
+      FS_RD_ARR_NULL = FS_RD_ARR.some(function (el) {
+          return el === null;
+      });
     } else {
       robot.logger.error("At least one Redis var is empty after multiple attempts");
-      throw "At least one Redis var is empty after multiple attempts";
+      throw "throw: At least one Redis var is empty after multiple attempts";
     };
     cnt++;
   }
@@ -159,6 +164,11 @@ module.exports = (robot) => {
       BLOCK_ID = robot.brain.get(`FS_${ROOM}:BLOCK_ID`);
       USERFN_ID = robot.brain.get(`FS_${ROOM}:USERFN_ID`);
       USERLN_ID = robot.brain.get(`FS_${ROOM}:USERLN_ID`);
+      FS_ARR = [FS_URL, FS_FORMID, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID, USERLN_ID];
+      // check array for null
+      var FS_ARR_NULL = FS_ARR.some(function (el) {
+          return el === null;
+      });
     } else {
       robot.logger.error("At least one var is empty after multiple attempts");
       throw "At least one Redis var is empty after multiple attempts";
@@ -171,23 +181,29 @@ module.exports = (robot) => {
   // DEGUG
   robot.logger.error("Values are "+FS_URL+" "+FS_FORMID+" "+DATEFIELD_ID+" "+YDAY_ID+" "+TDAY_ID+" "+BLOCK_ID+" "+USERFN_ID+" "+USERLN_ID);
 
-  // Call Formstack api to collect form feild id's
-  function getFields() {
-    robot.brain.set(`FS_${ROOM}:FS_FORMID`, FS_FORMID);
+
+  function getFields2() {
+        // DEBUG
+        robot.logger.info("In getFields2 function");
     // set api url
-    FSURL = `${FSAPIURL}.json?oauth_token=${FS_TOKEN}`;
+    FSURL = `https://www.formstack.com/api/v2/form/3384357.json?oauth_token=d4599d37fbcada701ba2fb81fac2ecde`;
     // Get Form info from formstack api
-    GetFormData(ROOM, FSURL, (jdata) => {
+
+    GetFormData3(FSURL, (jdata) => {
+
+        // DEBUG
+        robot.logger.info("In getFields2 GetFormData3 return function "+jdata.submissions);
+
       // Get feild IDs from Formstack form
       robot.brain.set(`FS_${ROOM}:FS_URL`, jdata.url);
           // DEBUG
-          robot.logger.error("fs url is "+jdata.url+" redis data "+robot.brain.get(`FS_${ROOM}:FS_URL`));
+          robot.logger.info("fs url is "+jdata.url+" redis data "+robot.brain.get(`FS_${ROOM}:FS_URL`));
 
       for (field of jdata.fields) {
         if (field.label.toLowerCase().includes("date")) {
           robot.brain.set(`FS_${ROOM}:DATEFIELD_ID`, field.id);
               // DEBUG
-              robot.logger.error("fs data is "+field.id+" redis data "+robot.brain.get(`FS_${ROOM}:DATEFIELD_ID`));
+              robot.logger.info("fs data is "+field.id+" redis data "+robot.brain.get(`FS_${ROOM}:DATEFIELD_ID`));
 
         } else if (field.label.toLowerCase().includes("yesterday")) {
           robot.brain.set(`FS_${ROOM}:YDAY_ID`, field.id);
@@ -203,6 +219,126 @@ module.exports = (robot) => {
       };
     });
   };
+
+
+
+  // Call Formstack api to collect form feild id's
+  function getFields() {
+        // DEBUG
+        robot.logger.info("In getFields function");
+
+    robot.brain.set(`FS_${ROOM}:FS_FORMID`, FS_FORMID);
+    // set api url
+    FSURL = `https://www.formstack.com/api/v2/form/3384357.json`;
+    // Get Form info from formstack api
+
+
+    GetFormData2(FSURL, (jdata) => {
+
+        // DEBUG
+        robot.logger.info("In getFields GetFormData return function");
+
+      // Get feild IDs from Formstack form
+      robot.brain.set(`FS_${ROOM}:FS_URL`, jdata.url);
+          // DEBUG
+          robot.logger.info("fs url is "+jdata.url+" redis data "+robot.brain.get(`FS_${ROOM}:FS_URL`));
+
+      for (field of jdata.fields) {
+        if (field.label.toLowerCase().includes("date")) {
+          robot.brain.set(`FS_${ROOM}:DATEFIELD_ID`, field.id);
+              // DEBUG
+              robot.logger.info("fs data is "+field.id+" redis data "+robot.brain.get(`FS_${ROOM}:DATEFIELD_ID`));
+
+        } else if (field.label.toLowerCase().includes("yesterday")) {
+          robot.brain.set(`FS_${ROOM}:YDAY_ID`, field.id);
+        } else if (field.label.toLowerCase().includes("today")) {
+          robot.brain.set(`FS_${ROOM}:TDAY_ID`, field.id);
+        } else if (field.label.toLowerCase().includes("impeding") || field.label.toLowerCase().includes("blocking")) {
+          robot.brain.set(`FS_${ROOM}:BLOCK_ID`, field.id);
+        } else if (field.label.toLowerCase().includes("first name")) {
+          robot.brain.set(`FS_${ROOM}:USERFN_ID`, field.id);
+        } else if (field.label.toLowerCase().includes("last name")) {
+          robot.brain.set(`FS_${ROOM}:USERLN_ID`, field.id);
+        };
+      };
+
+      FS_RD_ARR = [robot.brain.get(`FS_${ROOM}:FS_URL`), robot.brain.get(`FS_${ROOM}:FS_FORMID`), robot.brain.get(`FS_${ROOM}:DATEFIELD_ID`), robot.brain.get(`FS_${ROOM}:YDAY_ID`), robot.brain.get(`FS_${ROOM}:TDAY_ID`), robot.brain.get(`FS_${ROOM}:BLOCK_ID`), robot.brain.get(`FS_${ROOM}:USERFN_ID`), robot.brain.get(`FS_${ROOM}:USERLN_ID`)];
+      robot.logger.info("redis Array "+FS_RD_ARR);
+    });
+  };
+
+  //Test
+  function GetFormData2(fsurl, jbody) {
+    robot.http(fsurl)
+    .header('Accept', 'application/json')
+    .header("Authorization", "Bearer " + FS_TOKEN)
+    .header('accept-encoding', 'gzip, deflate')
+    .get()((err, res, body) => {
+      // DEBUG
+      robot.logger.info("In GetFormData2 function http");
+
+      if (err) {
+        // send error message to room
+        //robot.messageRoom(room, `I was not able to connect to Formstack: ${res}`);
+        robot.logger.error(`Error connecting to formstack: ${res}`);
+        return;
+      } else {
+        jdata = JSON.parse(body);
+        if (jdata.error) {
+          //robot.messageRoom(room, "Somethings not right, have my owner take a look at my logs");
+          robot.logger.error(`Error retreving data: ${jdata.error}`);
+        };
+          // DEBUG
+          robot.logger.info("finish GetFormData function - no error");
+
+        // send results to return function
+        jbody(jdata);
+      };
+    });
+
+
+    // return new Promise((resolve, reject) =>
+    //   robot.http(fsurl).get()((err,response, body) =>
+    //     err ? reject(err) : resolve(body)
+    //   )
+    // );
+  };
+
+  function GetFormData3(fsurl, jbody) {
+      // DEBUG
+      robot.logger.info("In GetFormData3 function");
+
+    // Get json of form submissions
+    robot.http(fsurl).get()((err, res, body) => {
+        // DEBUG
+        robot.logger.info("In GetFormData3 function http");
+
+      if (err) {
+        // send error message to room
+        //robot.messageRoom(room, `I was not able to connect to Formstack: ${res}`);
+        robot.logger.error(`Error connecting to formstack: ${res}`);
+        return;
+      } else {
+        jdata = JSON.parse(body);
+        if (jdata.error) {
+          //robot.messageRoom(room, "Somethings not right, have my owner take a look at my logs");
+          robot.logger.error(`Error retreving data: ${jdata.error}`);
+        };
+          // DEBUG
+          robot.logger.info("finish GetFormData3 function - no error");
+
+        // send results to return function
+        jbody(jdata);
+      };
+    });
+  };
+
+  //END TEST
+
+
+
+
+
 
   // ---- ad-hoc commands ----
   var regx = "standup(?:\\s+)?(\\w+(?:\\s+\\w+)?)?$";
@@ -264,21 +400,30 @@ module.exports = (robot) => {
     };
   };
   // ---- Return json from formstack web request ----
-  // "room" and "fsurl" are passed in, "jbody" is the return
-  function GetFormData(room, fsurl, jbody) {
+  // "room" and "FSURL" are passed in, "jbody" is the return
+  function GetFormData(room, FSURL, jbody) {
+      // DEBUG
+      robot.logger.info("In GetFormData function");
+
     // Get json of form submissions
-    robot.http(fsurl).get()((err, res, body) => {
+    robot.http(FSURL).get()((err, res, body) => {
+        // DEBUG
+        robot.logger.info("In GetFormData function http");
+
       if (err) {
         // send error message to room
-        robot.messageRoom(room, `I was not able to connect to Formstack: ${res}`);
+        //robot.messageRoom(room, `I was not able to connect to Formstack: ${res}`);
         robot.logger.error(`Error connecting to formstack: ${res}`);
         return;
       } else {
         jdata = JSON.parse(body);
         if (jdata.error) {
-          robot.messageRoom(room, "Somethings not right, have my owner take a look at my logs");
+          //robot.messageRoom(room, "Somethings not right, have my owner take a look at my logs");
           robot.logger.error(`Error retreving data: ${jdata.error}`);
         };
+          // DEBUG
+          robot.logger.info("finish GetFormData function - no error");
+
         // send results to return function
         jbody(jdata);
       };
