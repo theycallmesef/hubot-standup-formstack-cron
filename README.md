@@ -25,11 +25,11 @@ Then add **hubot-standup-formstack-cron** to your `external-scripts.json`:
 Requires a Formstack form and access to Formstack api.\
 [Formstack](https://www.formstack.com/) - "*An intuitive, drag-and-drop form and workflow builder that allows businesses to collect information that matters and automate processes*".
 
-::: warning
-Formstack form MUST have fields with the following key terms (in any order).
-The fields do not need to be verbatim and are not case sensitive.
-"Date of report" would work for the "Date" field.
-:::
+##### Note
+- Formstack form MUST have fields with the following key terms (in any order).
+- The fields do not need to be verbatim and are not case sensitive.
+- "Date of report" would work for the "Date" field.
+
 
 | Key Term | Description |
 | -------- | ----------- |
