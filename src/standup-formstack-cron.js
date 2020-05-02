@@ -208,14 +208,14 @@ module.exports = (robot) => {
     // Clear Vars
     var FS_URL, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID, USERLN_ID;
     // Get vars from redis
-    robot.brain.get(`FS_${room}:FS_URL`);
-    robot.brain.get(`FS_${room}:FS_FORMID`);
-    robot.brain.get(`FS_${room}:DATEFIELD_ID`);
-    robot.brain.get(`FS_${room}:YDAY_ID`);
-    robot.brain.get(`FS_${room}:TDAY_ID`);
-    robot.brain.get(`FS_${room}:BLOCK_ID`);
-    robot.brain.get(`FS_${room}:USERFN_ID`);
-    robot.brain.get(`FS_${room}:USERLN_ID`);
+    FS_URL = robot.brain.get(`FS_${room}:FS_URL`);
+    FS_FORMID = robot.brain.get(`FS_${room}:FS_FORMID`);
+    DATEFIELD_ID = robot.brain.get(`FS_${room}:DATEFIELD_ID`);
+    YDAY_ID = robot.brain.get(`FS_${room}:YDAY_ID`);
+    TDAY_ID = robot.brain.get(`FS_${room}:TDAY_ID`);
+    BLOCK_ID = robot.brain.get(`FS_${room}:BLOCK_ID`);
+    USERFN_ID = robot.brain.get(`FS_${room}:USERFN_ID`);
+    USERLN_ID = robot.brain.get(`FS_${room}:USERLN_ID`);
     // Array of required formstack vars
     var FS_ARR = [FS_FORMID, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID];
     // Check array for null
