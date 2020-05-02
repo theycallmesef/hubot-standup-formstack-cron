@@ -25,35 +25,36 @@ Then add **hubot-standup-formstack-cron** to your `external-scripts.json`:
 Requires a Formstack form and access to Formstack api.\
 [Formstack](https://www.formstack.com/) - "*An intuitive, drag-and-drop form and workflow builder that allows businesses to collect information that matters and automate processes*".
 
-  Formstack form MUST have fields with the following key terms (in any order).
-  The fields do not need to be verbatim and are not case sensitive.
-  "Date of report" would work for the "Date" field:
+::: warning
+Formstack form MUST have fields with the following key terms (in any order).
+The fields do not need to be verbatim and are not case sensitive.
+"Date of report" would work for the "Date" field.
+:::
 
-  >  '**Date**' - (REQUIRED) Formstack date the report is for
-  >  '**Yesterday**' - (REQUIRED) Formstack tasks from Yesterday
-  >  '**Today**' - (REQUIRED) Formstack tasks for Today
-  >  '**Blocker**' or '**Impeding**' - (REQUIRED) Blockers or items keeping work or tasks from happening
-  >  '**First Name**' - (REQUIRED) Formstack User (first or other) name
-  >  '**Last Name**' - (OPTIONAL) Formstack User Last Name
+| Key Term | Description |
+| -------- | ----------- |
+| '**Date**' | (REQUIRED) Formstack date the report is for |
+| '**Yesterday**' | (REQUIRED) Formstack tasks from Yesterday|
+| '**Today**' | (REQUIRED) Formstack tasks for Today |
+| '**Blocker**' or '**Impeding**' | (REQUIRED) Blockers or items keeping work or tasks from happening |
+| '**First Name**' | (REQUIRED) Formstack User (first or other) name |
+| '**Last Name**' | (OPTIONAL) Formstack User Last Name |
 
-  **Environment Variables:**
-```
-HUBOT_FORMSTACK_TOKEN                - (Required) Formstack API Token
-HUBOT_FORMSTACK_FORM_ID              - (Required) Formstack form ID
+#### **Environment Variables:**
 
-HUBOT_FORMSTACK_PREFIX               - (Optional) set a prefix for multiple standup reports
+| Key Term | Description |
+| -------- | ----------- |
+| HUBOT_FORMSTACK_TOKEN | (Required) Formstack API Token |
+| HUBOT_FORMSTACK_FORM_ID | (Required) Formstack form ID |
+| HUBOT_FORMSTACK_PREFIX | (Optional) set a prefix for multiple standup reports |
+| HUBOT_FORMSTACK_HEAR | (Optional) Turn on or off hubot hear (default off) |
+| HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK | (Optional) Filter Formstack submissions within X day ago (default 5 days) |
+| HUBOT_FORMSTACK_CHAT_ROOM_NAME | (Required for reminder and report) Chat room name for auto reminder and report |
+| HUBOT_FORMSTACK_TIMEZONE | (Required for reminder and report) |
+| HUBOT_FORMSTACK_URL | (Optional for reminder) url of the form for auto reminder |
+| HUBOT_FORMSTACK_REMINDER_CRON | (Required for reminder) schedule a reminder to fill the form |
+| HUBOT_FORMSTACK_STANDUP_REPORT_CRON | (Required for auto report) schedule to send the submissions |
 
-HUBOT_FORMSTACK_HEAR                 - (Optional) Turn on or off hubot hear (default off)
-
-HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK - (Optional) Filter Formstack submissions within X day ago (default 5 days)
-
-HUBOT_FORMSTACK_CHAT_ROOM_NAME       - (Required for reminder and report) Chat room name for auto reminder and report
-HUBOT_FORMSTACK_TIMEZONE             - (Required for reminder and report)
-HUBOT_FORMSTACK_URL                  - (Optional for reminder) url of the form for auto reminder
-
-HUBOT_FORMSTACK_REMINDER_CRON        - (Required for reminder) schedule a reminder to fill the form
-HUBOT_FORMSTACK_STANDUP_REPORT_CRON  - (Required for auto report) schedule to send the submissions
-```
 
 ## Commands:
 ```
