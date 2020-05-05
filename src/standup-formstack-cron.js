@@ -183,10 +183,12 @@ module.exports = (robot) => {
       };
       // Array of all required formstack vars
       var FS_ARR = [FS_FORMID, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID];
+
       // Check array for null
-      var FS_ARR_VALID = !FS_ARR.includes(undefined);
-      // if all in array are valid save vars to redis
-      if (FS_ARR_VALID) {
+      var FS_ARR_NULL = FS_ARR.includes(undefined);
+      var FS_ARR_NULL2 = FS_ARR.includes('');
+      // if one in array is undefined or empty, get info from webhook
+      if (FS_ARR_NULL === false || FS_ARR_NULL2 === false || !FS_ARR.length === false) {
         robot.brain.set(`FS_${room}:FS_URL`, FS_URL);
         robot.brain.set(`FS_${room}:FS_FORMID`, FS_FORMID);
         robot.brain.set(`FS_${room}:DATEFIELD_ID`, DATEFIELD_ID);
@@ -195,6 +197,7 @@ module.exports = (robot) => {
         robot.brain.set(`FS_${room}:BLOCK_ID`, BLOCK_ID);
         robot.brain.set(`FS_${room}:USERFN_ID`, USERFN_ID);
         robot.brain.set(`FS_${room}:USERLN_ID`, USERLN_ID);
+        robot.logger.info("standup-formstack-cron: Data saved to redis");
       } else {
         robot.logger.error("standup-formstack-cron: One or more variables are empty");
         robot.messageRoom(room, "I was not able to find the form, Please ask my owner to check the logs");
@@ -219,11 +222,15 @@ module.exports = (robot) => {
     // Array of required formstack vars
     var FS_ARR = [FS_FORMID, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID];
     // Check array for null
-    var FS_ARR_VALID = FS_ARR.includes(undefined);
+    var FS_ARR_NULL = FS_ARR.includes(undefined);
+    var FS_ARR_NULL2 = FS_ARR.includes('');
     // if one in array is undefined or empty, get info from webhook
-    if (FS_ARR_VALID) {
+
+    if (FS_ARR_NULL === false || FS_ARR_NULL2 === false || !FS_ARR.length === false) {
       robot.logger.info("standup-formstack-cron: Could not get info from redis");
       GetFormInfo(room);
+    } else {
+      robot.logger.info("standup-formstack-cron: Data gathered from redis");
     };
   };
 
