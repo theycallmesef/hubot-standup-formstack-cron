@@ -88,7 +88,7 @@ module.exports = (robot) => {
     // Reminder Cron
     REMINDER_CRON_JOB = new CronJob(REMINDER_CRON, function() {
       GetFormInfoRedis(ROOM);
-      robot.messageRoom(ROOM, `@here Time to fill out the stand up report ${FS_URL}\n`);
+      robot.messageRoom(ROOM, `@here Time to fill out the <${FS_URL}|stand up report>\n`);
       // fuction to list who has filled out the form
       return FilledItOut(ROOM);
     }, null, true, TIMEZONE);
