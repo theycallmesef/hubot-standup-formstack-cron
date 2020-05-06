@@ -167,23 +167,22 @@ module.exports = (robot) => {
       FS_URL = jdata.url;
       // Get field id's by keyword search
       for (field of jdata.fields) {
-        if (field.label.toLowerCase().includes("date")) {
+        if (field.label.toLowerCase().match(/date/i)) {
           DATEFIELD_ID = field.id;
-        } else if (field.label.toLowerCase().includes("yesterday")) {
+        } else if (field.label.toLowerCase().match(/\byesterday\b/i)) {
           YDAY_ID = field.id;
-        } else if (field.label.toLowerCase().includes("today")) {
+        } else if (field.label.toLowerCase().match(/\btoday\b/i)) {
           TDAY_ID = field.id;
-        } else if (field.label.toLowerCase().includes("impeding") || field.label.toLowerCase().includes("blocking")) {
+        } else if (field.label.toLowerCase().match(/\bimped|\bblock/i)) {
           BLOCK_ID = field.id;
-        } else if (field.label.toLowerCase().includes("first name")) {
+        } else if (field.label.toLowerCase().match(/first name/i)) {
           USERFN_ID = field.id;
-        } else if (field.label.toLowerCase().includes("last name")) {
+        } else if (field.label.toLowerCase().match(/last name/i)) {
           USERLN_ID = field.id;
         };
       };
       // Array of all required formstack vars
       var FS_ARR = [FS_FORMID, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID];
-
       // Check array for null
       var FS_ARR_NULL = FS_ARR.includes(undefined);
       var FS_ARR_NULL2 = FS_ARR.includes('');
