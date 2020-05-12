@@ -175,9 +175,9 @@ module.exports = (robot) => {
           TDAY_ID = field.id;
         } else if (field.label.toLowerCase().match(/\bimped|\bblock/i)) {
           BLOCK_ID = field.id;
-        } else if (field.label.toLowerCase().match(/first name/i)) {
+        } else if (field.label.toLowerCase().match(/\bfirst name\b/i)) {
           USERFN_ID = field.id;
-        } else if (field.label.toLowerCase().match(/last name/i)) {
+        } else if (field.label.toLowerCase().match(/\blast name\b/i)) {
           USERLN_ID = field.id;
         };
       };
