@@ -68,7 +68,7 @@ const ONHEAR = process.env.HUBOT_FORMSTACK_HEAR || false; //(Optional) Turn on o
 
 const DAYSBACK = process.env.HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK || 5; //(Optional) filter formstack submissions within X day ago
 
-const ROOM = process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME; //(Required for reminder and report) Chat room name for auto reminder and report
+//const ROOM = process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME; //(Required for reminder and report) Chat room name for auto reminder and report
 const TIMEZONE = process.env.HUBOT_FORMSTACK_TIMEZONE || 'America/New_York'; //(Required for reminder and report) Timezone for cron (default 'America/New_York')
 
 const REMINDER_CRON = process.env.HUBOT_FORMSTACK_REMINDER_CRON; //(Required for reminder) schedule a reminder to fill the form
@@ -83,38 +83,13 @@ module.exports = (robot) => {
 
   // cron module
   const CronJob = require('cron').CronJob;
-  // Reminder with names of those who already filled it out cron
-  if (REMINDER_CRON && ROOM) {
-    // Reminder Cron
-    REMINDER_CRON_JOB = new CronJob(REMINDER_CRON, function() {
-      GetFormInfoRedis(ROOM);
-      robot.messageRoom(ROOM, `@here Time to fill out the stand up report ${FS_URL}\n`);
-      // fuction to list who has filled out the form
-      return FilledItOut(ROOM);
-    }, null, true, TIMEZONE);
-    REMINDER_CRON_JOB.start;
-  } else {
-    robot.logger.error("standup-formstack-cron: Missing variable for reminder cron");
-  };
 
-  if (STANDUP_REPORT_CRON && ROOM) {
-    // Report results cron
-    STANDUP_REPORT_CRON_JOB = new CronJob(STANDUP_REPORT_CRON, function() {
-      GetFormInfoRedis(ROOM);
-      // fuction to list results of form for today
-      return ReportStandup(ROOM);
-    }, null, true, TIMEZONE);
-    STANDUP_REPORT_CRON_JOB.start;
-  } else {
-    robot.logger.error("standup-formstack-cron: Missing variable for standup cron");
-  };
+  // Set vars
+  //var FS_URL, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID, USERLN_ID;
 
   // Check formstack token is set
   if (!FS_TOKEN) {
     robot.logger.error("standup-formstack-cron: Missing formstack token");
-  }
-  if (!FS_FORMID) {
-    robot.logger.error("standup-formstack-cron: Missing formstack ID");
   }
 
   // ---- ad-hoc commands ----
@@ -138,14 +113,17 @@ module.exports = (robot) => {
     rxmatch = msg.match[1];
     GetFormInfoRedis(room);
     // Logic to seperate the commands
-    if (rxmatch && rxmatch.toLowerCase() === "today") {
+    if (rxmatch.toLowerCase() === "today") {
       // fuction to list all users that filled out the form
       FilledItOut(room);
-    } else if (rxmatch && rxmatch.toLowerCase() === "help") {
+    } else if (rxmatch.toLowerCase() === "help") {
       // function to list a single user that filled out the form
       HelpReply(room);
-    } else if (rxmatch && (rxmatch.toLowerCase() !== "today"
-        || rxmatch.toLowerCase() !== "help")) {
+    } else if (rxmatch.toLowerCase() === "setup") {
+      // function to list a single user that filled out the form
+      Setup(room, rxmatch);
+    //} else if (rxmatch && (rxmatch.toLowerCase() !== "today" || rxmatch.toLowerCase() !== "help" || rxmatch.toLowerCase() !== "setup")) {
+    } else if (!["today", "help", "setup"].includes(rxmatch)) {
       // function to list a single user that filled out the form
       SingleReport(room, rxmatch);
     } else if (!rxmatch) {
@@ -153,6 +131,76 @@ module.exports = (robot) => {
       ReportStandup(room);
     };
   };
+
+
+//--------
+
+  function Setup(room, rxmatch) {
+    //robot.brain.get(`FS_${room}:SETUP`);
+    robot.messageRoom(room, `This is where you setup the form data ${rxmatch}`);
+    SetCron(room, STANDUP_REPORT_CRON, REMINDER_CRON, TIMEZONE);
+  };
+
+  function SetCron(room, standup_report_cron, reminder_cron, timezone){
+    robot.logger.info("standup-formstack-cron: Running cron setup");
+    // Reminder with names of those who already filled it out cron
+    if (reminder_cron && room) {
+      // Reminder Cron
+      reminder_cron_job = new CronJob(reminder_cron, function() {
+        GetFormInfoRedis(room);
+        robot.messageRoom(room, `@here Time to fill out the <${FS_URL}|stand up report>\n`);
+        // fuction to list who has filled out the form
+        return FilledItOut(room);
+      }, null, true, timezone);
+      reminder_cron_job.start;
+    } else {
+      robot.logger.error("standup-formstack-cron: Missing variable for reminder cron");
+    };
+
+    if (standup_report_cron && room) {
+      // Report results cron
+      standup_report_cron_job = new CronJob(standup_report_cron, function() {
+        GetFormInfoRedis(room);
+        // fuction to list results of form for today
+        return ReportStandup(room);
+      }, null, true, timezone);
+      standup_report_cron_job.start;
+    } else {
+      robot.logger.error("standup-formstack-cron: Missing variable for standup cron");
+    };
+
+    robot.logger.info("standup-formstack-cron: End cron setup");
+    robot.logger.info("standup-formstack-cron: cron set for "+reminder_cron_job.nextDates()+" and "+standup_report_cron_job.nextDates());
+
+  };
+
+  function GenCron(room, ReportTime, RemindBeforeMin,  Days) {
+    // Set date
+    var time = ReportTime.split(":");
+    // Convert to 24h time
+    if (ReportTime.match(/pm$/i)) {
+      time[0] = time[0] + 12;
+      time[1] = time[1].slice(0,-2);
+    } else if (ReportTime.match(/am$/i)) {
+      time[1] = time[1].slice(0,-2);
+    };
+
+    var d = new Date();
+    // set time in date object in order to properlly do time math
+    d.setHours(time[0]);
+    d.setMinutes(time[1]);
+    var standup_report_cron = d.getMinutes()+" "+d.getHours()+" * * 1-5"
+    // Set Minutes minus X minutes
+    d.setMinutes( d.getMinutes() - RemindBeforeMin);
+    // display hours and minutes
+    var reminder_cron = d.getMinutes()+" "+d.getHours()+" * * 1-5"
+    // var timezone = ;
+
+    SetCron(room, standup_report_cron, reminder_cron, timezone);
+  };
+
+  //---------------
+
 
   // ---- Pull Data From Formstack HTTP Webhook ----
   // Get info about the form from http webhook (like url and field id's) and then save it to redis (hubot brain)
@@ -165,36 +213,64 @@ module.exports = (robot) => {
     GetFormSubData(room, FSURL, (jdata) => {
       // Get form url
       FS_URL = jdata.url;
+      robot.logger.info("standup-formstack-cron: Pulling form data from formstack");
       // Get field id's by keyword search
       for (field of jdata.fields) {
-        if (field.label.toLowerCase().includes("date")) {
+        if (field.label.toLowerCase().match(/date/i)) {
           DATEFIELD_ID = field.id;
-        } else if (field.label.toLowerCase().includes("yesterday")) {
+        } else if (field.label.toLowerCase().match(/\byesterday\b/i)) {
           YDAY_ID = field.id;
-        } else if (field.label.toLowerCase().includes("today")) {
+        } else if (field.label.toLowerCase().match(/\btoday\b/i)) {
           TDAY_ID = field.id;
-        } else if (field.label.toLowerCase().includes("impeding") || field.label.toLowerCase().includes("blocking")) {
+        } else if (field.label.toLowerCase().match(/\bimped|\bblock/i)) {
           BLOCK_ID = field.id;
-        } else if (field.label.toLowerCase().includes("first name")) {
+        } else if (field.label.toLowerCase().match(/\bfirst name\b/i)) {
           USERFN_ID = field.id;
-        } else if (field.label.toLowerCase().includes("last name")) {
+        } else if (field.label.toLowerCase().match(/\blast name\b/i)) {
           USERLN_ID = field.id;
         };
       };
       // Array of all required formstack vars
       var FS_ARR = [FS_FORMID, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID];
       // Check array for null
-      var FS_ARR_VALID = !FS_ARR.includes(undefined);
-      // if all in array are valid save vars to redis
-      if (FS_ARR_VALID) {
-        robot.brain.set(`FS_${room}:FS_URL`, FS_URL);
-        robot.brain.set(`FS_${room}:FS_FORMID`, FS_FORMID);
-        robot.brain.set(`FS_${room}:DATEFIELD_ID`, DATEFIELD_ID);
-        robot.brain.set(`FS_${room}:YDAY_ID`, YDAY_ID);
-        robot.brain.set(`FS_${room}:TDAY_ID`, TDAY_ID);
-        robot.brain.set(`FS_${room}:BLOCK_ID`, BLOCK_ID);
-        robot.brain.set(`FS_${room}:USERFN_ID`, USERFN_ID);
-        robot.brain.set(`FS_${room}:USERLN_ID`, USERLN_ID);
+      //var FS_ARR_NULL = FS_ARR.includes(undefined);
+      //var FS_ARR_NULL2 = FS_ARR.includes('');
+      // if one in array is undefined or empty, get info from webhook
+      //if (FS_ARR_NULL === false || FS_ARR_NULL2 === false) {
+      if (FS_ARR.includes(undefined) === true || FS_ARR.includes('') === true) {
+
+        // var FsVarObj = [];
+        // FsVarObj["fs_"+room] = {
+        //   FS_URL: FS_URL,
+        //   FS_FORMID: FS_FORMID,
+        //   DATEFIELD_ID: DATEFIELD_ID,
+        //   YDAY_ID: YDAY_ID,
+        //   TDAY_ID: TDAY_ID,
+        //   BLOCK_ID: BLOCK_ID,
+        //   USERFN_ID: USERFN_ID,
+        //   USERLN_ID: USERLN_ID
+        // };
+        //
+        // try {
+        //   var fsdata = JSON.stringify(FsVarObj);
+        //   robot.brain.set(fsdata);
+        // } catch(err) {
+        //   robot.logger.error("standup-formstack-cron: Error saving form vars to redis "+err);
+        // }
+
+        try {
+          robot.brain.set(`FS_${room}.FS_URL`, FS_URL);
+          robot.brain.set(`FS_${room}.FS_FORMID`, FS_FORMID);
+          robot.brain.set(`FS_${room}.DATEFIELD_ID`, DATEFIELD_ID);
+          robot.brain.set(`FS_${room}.YDAY_ID`, YDAY_ID);
+          robot.brain.set(`FS_${room}.TDAY_ID`, TDAY_ID);
+          robot.brain.set(`FS_${room}.BLOCK_ID`, BLOCK_ID);
+          robot.brain.set(`FS_${room}.USERFN_ID`, USERFN_ID);
+          robot.brain.set(`FS_${room}.USERLN_ID`, USERLN_ID);
+        } catch(err) {
+          robot.logger.error("standup-formstack-cron: Error saving to redis");
+        }
+        robot.logger.info("standup-formstack-cron: Data saved to redis");
       } else {
         robot.logger.error("standup-formstack-cron: One or more variables are empty");
         robot.messageRoom(room, "I was not able to find the form, Please ask my owner to check the logs");
@@ -206,24 +282,63 @@ module.exports = (robot) => {
   // Get info about the form saved in redis (like url and field id's)
   function GetFormInfoRedis(room) {
     // Clear Vars
-    var FS_URL, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID, USERLN_ID;
+    //var FS_URL, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID, USERLN_ID;
     // Get vars from redis
-    FS_URL = robot.brain.get(`FS_${room}:FS_URL`);
-    FS_FORMID = robot.brain.get(`FS_${room}:FS_FORMID`);
-    DATEFIELD_ID = robot.brain.get(`FS_${room}:DATEFIELD_ID`);
-    YDAY_ID = robot.brain.get(`FS_${room}:YDAY_ID`);
-    TDAY_ID = robot.brain.get(`FS_${room}:TDAY_ID`);
-    BLOCK_ID = robot.brain.get(`FS_${room}:BLOCK_ID`);
-    USERFN_ID = robot.brain.get(`FS_${room}:USERFN_ID`);
-    USERLN_ID = robot.brain.get(`FS_${room}:USERLN_ID`);
+    robot.logger.info("standup-formstack-cron: Gathering data from redis "+room);
+
+    // var RedisData = robot.brain.get("FS_"+room);
+    // //var FormData = robot.brain.get(`FS_${room}`);
+    // robot.logger.info("Data - "+RedisData);
+    // var FormData = JSON.parse(RedisData);
+    // //robot.logger.info("DataURL - "+FormData.FS_URL);
+    //
+    // try {
+    //   FS_URL = FormData.FS_URL;
+    //   FS_FORMID = FormData.FS_FORMID;
+    //   DATEFIELD_ID = FormData.DATEFIELD_ID;
+    //   YDAY_ID = FormData.YDAY_ID;
+    //   TDAY_ID = FormData.TDAY_ID;
+    //   BLOCK_ID = FormData.BLOCK_ID;
+    //   USERFN_ID = FormData.USERFN_ID;
+    //   USERLN_ID = FormData.USERLN_ID;
+    //   var FS_ARR = [FS_FORMID, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID];
+    //   // Check array for null
+    //   var FS_ARR_NULL = FS_ARR.includes(undefined);
+    //   var FS_ARR_NULL2 = FS_ARR.includes('');
+    //   // if one in array is undefined or empty, get info from webhook
+    //
+    //   if (FS_ARR_NULL === false || FS_ARR_NULL2 === false || !FS_ARR.length === false) {
+    //      robot.logger.info("standup-formstack-cron: Could not read data in vars from redis");
+    //      throw "Error";
+    //   }
+    // } catch(err) {
+    //   robot.logger.info("standup-formstack-cron: Could not get info from redis");
+    //   GetFormInfo(room);
+    // };
+
+
+
+    FS_URL = robot.brain.get(`FS_${room}.FS_URL`);
+    FS_FORMID = robot.brain.get(`FS_${room}.FS_FORMID`);
+    DATEFIELD_ID = robot.brain.get(`FS_${room}.DATEFIELD_ID`);
+    YDAY_ID = robot.brain.get(`FS_${room}.YDAY_ID`);
+    TDAY_ID = robot.brain.get(`FS_${room}.TDAY_ID`);
+    BLOCK_ID = robot.brain.get(`FS_${room}.BLOCK_ID`);
+    USERFN_ID = robot.brain.get(`FS_${room}.USERFN_ID`);
+    USERLN_ID = robot.brain.get(`FS_${room}.USERLN_ID`);
     // Array of required formstack vars
     var FS_ARR = [FS_FORMID, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID];
     // Check array for null
-    var FS_ARR_VALID = FS_ARR.includes(undefined);
+    //var FS_ARR_NULL = FS_ARR.includes(undefined);
+    //var FS_ARR_NULL2 = FS_ARR.includes('');
+
     // if one in array is undefined or empty, get info from webhook
-    if (FS_ARR_VALID) {
-      robot.logger.info("standup-formstack-cron: Could not get info from redis");
-      GetFormInfo(room);
+    //if (FS_ARR_NULL === true || FS_ARR_NULL2 === true) {
+    if (FS_ARR.includes(undefined) === true || FS_ARR.includes('') === true) {
+       robot.logger.info("standup-formstack-cron: Could not read data in vars from redis" );
+       GetFormInfo(room);
+    } else {
+       robot.logger.info("standup-formstack-cron: Data gathered from redis "+FS_FORMID+" user "+USERFN_ID);
     };
   };
 
@@ -444,6 +559,7 @@ module.exports = (robot) => {
     if (ONHEAR) {
       message += `You can @${robot.name} or I'll listen for *${PREFIX}standup*\n`
     }
+    message += `${robot.name} ${PREFIX}standup setup - Setup the script for the first time\n`;
     message += `${robot.name} ${PREFIX}standup - List results of standup form for today\n`;
     message += `${robot.name} ${PREFIX}standup today - List who has filled out the standup form\n`;
     message +=`${robot.name} ${PREFIX}standup <USERNAME> - List results of standup form for today`;
