@@ -44,13 +44,6 @@ Dependencies:
 
 TODO:
   - Timezone adjustment for list from day
-  - Friendlier way to set cron reminder and schedule
-    - Schedule: Set days of week - (M-F or Custom span)
-    - Schedule: Set Time of day
-    - Remind x minutes before
-  - Future Feature?? multiple standup reports
-    - based room, setup by hubot and linked to room
-    - add standup command that would capture room and form ID to redis (hubot brain)
 */
 
 const FS_TOKEN = process.env.HUBOT_FORMSTACK_TOKEN; //(Required) Formstack API Token
@@ -71,6 +64,21 @@ module.exports = (robot) => {
 
   // cron module
   const CronJob = require('cron').CronJob;
+
+  // Backwards Compatability
+  if (process.env.HUBOT_FORMSTACK_FORM_ID && process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME) {
+    let ID = process.env.HUBOT_FORMSTACK_FORM_ID;
+    let RM = process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME;
+    // Auto setup form from env's
+    SetupForm(RM, ID);
+    // Auto setup cron from env's
+    if (process.env.HUBOT_FORMSTACK_REMINDER_CRON || process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON) {
+      let MN = process.env.HUBOT_FORMSTACK_REMINDER_CRON;
+      let RP = process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON;
+      SetCron(RM, RP, MN, TIMEZONE);
+    };
+  };
+
 
   // ---- ad-hoc commands ----
   //var regx = "standup\\s+(\\w+(?:\\s+\\w+)?)?$";
@@ -183,14 +191,14 @@ module.exports = (robot) => {
       // var timezone = ;
 
       robot.messageRoom(room, `Form reminder (${formid}) setup in this room for ${reporttime} on days ${days}`);
-      SetCron(room, standup_report_cron, reminder_cron, timezone);
+      SetCron(room, standup_report_cron, reminder_cron);
     };
     GetFormInfo(room);
     robot.messageRoom(room, `${formid} - Form has been setup`);
   };
 
   // ---- setup auto post and reminder cron ----
-  function SetCron(room, standup_report_cron, reminder_cron, timezone){
+  function SetCron(room, standup_report_cron, reminder_cron){
     robot.logger.info("standup-formstack-cron: Running cron setup");
     // Reminder with names of those who already filled it out cron
     if (reminder_cron && room) {
@@ -200,7 +208,7 @@ module.exports = (robot) => {
         robot.messageRoom(room, `@here Time to fill out the <${FS_URL}|stand up report>\n`);
         // fuction to list who has filled out the form
         return FilledItOut(room);
-      }, null, true, timezone);
+      }, null, true, TIMEZONE);
       reminder_cron_job.start;
     } else {
       robot.logger.error("standup-formstack-cron: Missing variable for reminder cron");
@@ -212,7 +220,7 @@ module.exports = (robot) => {
         GetFormInfoRedis(room);
         // fuction to list results of form for today
         return ReportStandup(room);
-      }, null, true, timezone);
+      }, null, true, TIMEZONE);
       standup_report_cron_job.start;
     } else {
       robot.logger.error("standup-formstack-cron: Missing variable for standup cron");
