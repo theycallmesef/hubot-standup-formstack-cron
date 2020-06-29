@@ -43,7 +43,7 @@ Dependencies:
   "cron": ">=1.7.2"
 
 TODO:
-  - Timezone adjustment for list from day
+
 */
 
 const FS_TOKEN = process.env.HUBOT_FORMSTACK_TOKEN; //(Required) Formstack API Token
@@ -72,10 +72,11 @@ module.exports = (robot) => {
     // Auto setup form from env's
     SetupForm(RM, ID);
     // Auto setup cron from env's
-    if (process.env.HUBOT_FORMSTACK_REMINDER_CRON || process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON) {
+    if ((process.env.HUBOT_FORMSTACK_REMINDER_CRON || process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON) && process.env.HUBOT_FORMSTACK_TIMEZONE) {
       let MN = process.env.HUBOT_FORMSTACK_REMINDER_CRON;
       let RP = process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON;
-      SetCron(RM, RP, MN, TIMEZONE);
+      let TM = process.env.HUBOT_FORMSTACK_TIMEZONE;
+      SetCron(RM, RP, MN, TM);
     };
   };
 
@@ -158,6 +159,10 @@ module.exports = (robot) => {
     } else {
       robot.messageRoom(room, `The form ID entered (${formid}), is not a number\nPlease try again`);
     };
+
+    // Get form data and "timezone"
+    GetFormInfo(room);
+
     // Setup cron
     if (reporttime) {
       // Set date
@@ -193,7 +198,6 @@ module.exports = (robot) => {
       robot.messageRoom(room, `Form reminder (${formid}) setup in this room for ${reporttime} on days ${days}`);
       SetCron(room, standup_report_cron, reminder_cron);
     };
-    GetFormInfo(room);
     robot.messageRoom(room, `${formid} - Form has been setup`);
   };
 
@@ -251,6 +255,7 @@ module.exports = (robot) => {
     GetFormSubData(room, FSURL, (jdata) => {
       // Get form url
       FS_URL = jdata.url;
+      TIMEZONE = jdata.timezone;
       robot.logger.info("standup-formstack-cron: Pulling form data from formstack");
       // Get field id's by keyword search
       for (field of jdata.fields) {
@@ -282,6 +287,7 @@ module.exports = (robot) => {
           robot.brain.set(`FS_${room}.USERFN_ID`, USERFN_ID);
           robot.brain.set(`FS_${room}.USERLN_ID`, USERLN_ID);
           robot.brain.set(`FS_${room}.FSAPIURL`, FSAPIURL);
+          robot.brain.set(`FS_${room}.TIMEZONE`, TIMEZONE);
         } catch(err) {
           robot.logger.error(`standup-formstack-cron: Error saving to redis ${err}`);
         };
@@ -308,6 +314,7 @@ module.exports = (robot) => {
       USERFN_ID = robot.brain.get(`FS_${room}.USERFN_ID`);
       USERLN_ID = robot.brain.get(`FS_${room}.USERLN_ID`);
       FSAPIURL = robot.brain.get(`FS_${room}.FSAPIURL`);
+      TIMEZONE = robot.brain.get(`FS_${room}.TIMEZONE`);
     } catch(err) {
       robot.logger.error(`standup-formstack-cron: Error retreving from redis ${err}`);
     };
@@ -342,6 +349,7 @@ module.exports = (robot) => {
       robot.brain.remove(`FS_${room}.USERFN_ID`);
       robot.brain.remove(`FS_${room}.USERLN_ID`);
       robot.brain.remove(`FS_${room}.FSAPIURL`);
+      robot.brain.remove(`FS_${room}.TIMEZONE`);
     } catch(err) {
       robot.messageRoom(room, `There was an issue, please have my owner check my logs`);
       robot.logger.error(`standup-formstack-cron: Error deleting values in brain ${err}`);
@@ -357,6 +365,14 @@ module.exports = (robot) => {
       USERFN_ID = undefined;
       USERLN_ID = undefined;
       FSAPIURL = undefined;
+
+      try {
+        robot.brain.get(`FS_${room}.FS_FORMID`);
+      } catch {
+        robot.messageRoom(room, `There was an error when removing`);
+        robot.logger.info(`standup-formstack-cron: Form failed to be removed from ${room}`);
+      };
+
       robot.messageRoom(room, `Removed form link`);
       robot.logger.info(`standup-formstack-cron: Form has been removed from ${room}`);
     };
@@ -365,13 +381,13 @@ module.exports = (robot) => {
   // ---- Date calculator and formater ----
   // returns formated current date "DATEFORMAT" and lookback date "MINDATE"
   function CalcDate() {
-    // TODO set date to match timezone var
+    // TODO set date time to match timezone var time
     var TODAY = new Date;
     var TODAYBACK = new Date;
     // Set date lookback XX amount of days
     TODAYBACK.setDate(TODAYBACK.getDate() - DAYSBACK);
     // create lookback date limit to filter submissions results using "min_time" param in url
-    // "min_time" param is based on eastern time
+    // formstack api "min_time" param is based on eastern time
     var MINDATE = `${TODAYBACK.getFullYear()}-${(TODAYBACK.getMonth() + 1)}-${TODAYBACK.getDate()} 13:45:00`;
     // Set Month array
     var MTHREE = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
