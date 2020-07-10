@@ -342,7 +342,7 @@ module.exports = (robot) => {
           });
         };
       };
-      if (message === "") {
+      if (!message) {
         // Funny messages hubot sends if no results are found
         var gone = [
           "Sooooo... Is everyone on holiday?",
