@@ -222,8 +222,9 @@ module.exports = (robot) => {
       // Report results cron
       standup_report_cron_job = new CronJob(standup_report_cron, function() {
         GetFormInfoRedis(room);
+        var CronRun = TRUE;
         // fuction to list results of form for today
-        return ReportStandup(room);
+        return ReportStandup(room, CronRun);
       }, null, true, TIMEZONE);
       standup_report_cron_job.start;
     } else {
@@ -468,7 +469,7 @@ module.exports = (robot) => {
   };
 
   // ---- Form data Report for all users today ----
-  function ReportStandup(room) {
+  function ReportStandup(room, CronRun) {
     var entry, message, FSURL;
     // Get dates needed
     Dates = CalcDate();
@@ -490,7 +491,7 @@ module.exports = (robot) => {
           });
         };
       };
-      if (message === "") {
+      if (!message && CronRun) {
         // Funny messages hubot sends if no results are found
         var gone = [
           "Sooooo... Is everyone on holiday?",
