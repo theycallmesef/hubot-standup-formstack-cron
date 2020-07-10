@@ -16,9 +16,9 @@ describe('standup-formstack-cron', function() {
     };
   });
   it('registers a respond listener for standup command', function() {
-    return expect(this.robot.respond).to.have.been.calledWith(/^ps-standup( ([Tt]oday))?$/i);
+    return expect(this.robot.respond).to.have.been.calledWith(/^standup( ([Tt]oday))?$/i);
   });
   return it('registers a respond listener for standup command', function() {
-    return expect(this.robot.respond).to.have.been.calledWith(/^ps-standup$/i);
+    return expect(this.robot.respond).to.have.been.calledWith(/^standup$/i);
   });
 });
