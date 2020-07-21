@@ -65,6 +65,9 @@ module.exports = (robot) => {
   // cron module
   const CronJob = require('cron').CronJob;
 
+  // timezone module
+  var { DateTime } = require('luxon');
+
   // Backwards Compatability
   if (process.env.HUBOT_FORMSTACK_FORM_ID && process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME) {
     let ID = process.env.HUBOT_FORMSTACK_FORM_ID;
@@ -383,14 +386,19 @@ module.exports = (robot) => {
   // returns formated current date "DATEFORMAT" and lookback date "MINDATE"
   function CalcDate() {
     // TODO set date time to match timezone var time
+    DateTime.local().setZone(TIMEZONE);
     var TODAY = new Date;
     var TODAYBACK = new Date;
     // Set date lookback XX amount of days
     TODAYBACK.setDate(TODAYBACK.getDate() - DAYSBACK);
-    // Set date lookback XX amount of days and format (Jan 01, 2019)
-    const MINDATE = TODAYBACK.tz(TIMEZONE).format('ll');
-    // Format (Jan 01, 2019)
-    const DATEFORMAT = TODAY.tz(TIMEZONE).format('ll');
+    // create lookback date limit to filter submissions results using "min_time" param in url
+    // formstack api "min_time" param is based on eastern time
+    var MINDATE = `${TODAYBACK.getFullYear()}-${(TODAYBACK.getMonth() + 1)}-${TODAYBACK.getDate()} 13:45:00`;
+    // Set Month array
+    var MTHREE = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    // create formated month day year for formstack lookup (Jan 01, 2019)
+    // (`0${TODAY.getDate()}`).slice(-2) creates a two digit day
+    var DATEFORMAT = (MTHREE[TODAY.getMonth()]+" "+(`0${TODAY.getDate()}`).slice(-2)+", "+TODAY.getFullYear());
     // return formated dates
     if (DATEFORMAT && MINDATE) {
       return [DATEFORMAT, MINDATE];
