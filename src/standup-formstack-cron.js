@@ -242,7 +242,7 @@ module.exports = (robot) => {
 
   // --- test for empty values in an array ---
   function TestArrayValues(array) {
-    robot.logger.info("standup-formstack-cron: Testing array valuse");
+    robot.logger.info("standup-formstack-cron: Testing array values");
     for (i = 0; i < array.length; i++) {
       if (!array[i] || array[i] === '' || array[i] == undefined) {
         // var does not have a value
