@@ -70,12 +70,14 @@ module.exports = (robot) => {
 
   // Backwards Compatability
   if (process.env.HUBOT_FORMSTACK_FORM_ID && process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME) {
+    robot.logger.info("standup-formstack-cron: Setting up Form from env's");
     let ID = process.env.HUBOT_FORMSTACK_FORM_ID;
     let RM = process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME;
     // Auto setup form from env's
     SetupForm(RM, ID);
     // Auto setup cron from env's
     if ((process.env.HUBOT_FORMSTACK_REMINDER_CRON || process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON) && process.env.HUBOT_FORMSTACK_TIMEZONE) {
+      robot.logger.info("standup-formstack-cron: Setting up Cron from env's");
       let MN = process.env.HUBOT_FORMSTACK_REMINDER_CRON;
       let RP = process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON;
       let TM = process.env.HUBOT_FORMSTACK_TIMEZONE;
@@ -106,6 +108,7 @@ module.exports = (robot) => {
     var room, rxmatch;
     room = msg.message.room;
     rxmatch = msg.match[1];
+    robot.logger.info("standup-formstack-cron: Bot responding to command");
     // Check formstack token is set
     if (!FS_TOKEN) {
       robot.messageRoom(room, "Unable to run this plugin\nCannot find the Formstack token");
@@ -154,7 +157,8 @@ module.exports = (robot) => {
 
   // ---- Setup form and cron to room ----
   function SetupForm(room, formid, reporttime, remindbeforemin, days) {
-    robot.messageRoom(room, `Setting up connection to form `);
+    robot.messageRoom(room, `Setting up connection to form`);
+    robot.logger.info("standup-formstack-cron: Setting up connection to form");
     // Make sure formid is a number
     if (Number.isInteger(Number(formid))) {
       FS_FORMID = formid;
@@ -238,6 +242,7 @@ module.exports = (robot) => {
 
   // --- test for empty values in an array ---
   function TestArrayValues(array) {
+    robot.logger.info("standup-formstack-cron: Testing array valuse");
     for (i = 0; i < array.length; i++) {
       if (!array[i] || array[i] === '' || array[i] == undefined) {
         // var does not have a value
@@ -385,6 +390,7 @@ module.exports = (robot) => {
   // ---- Date calculator and formater ----
   // returns formated current date "DATEFORMAT" and lookback date "MINDATE"
   function CalcDate() {
+    robot.logger.info(`standup-formstack-cron: Running calculations for the date`);
     // TODO set date time to match timezone var time
     DateTime.local().setZone(TIMEZONE);
     var TODAY = new Date;
@@ -410,6 +416,7 @@ module.exports = (robot) => {
   // ---- Return json from formstack web request ----
   // "room" and "fsurl" are passed in, "jbody" is the return
   function GetFormSubData(room, fsurl, jbody) {
+    robot.logger.info("standup-formstack-cron: Gathering json data from form api");
     // Get json of form submissions
     robot.http(fsurl)
       .header('Accept', 'application/json')
@@ -435,6 +442,7 @@ module.exports = (robot) => {
   // ---- Format and Clean message data ----
   function FormatClean(entry, clnmessage) {
     var yday, tday, block, message, userfn, userln, usern;
+    robot.logger.info(`standup-formstack-cron: Cleaning format of text for report`);
     // fuction to clean up submission text
     function CleanTxt(value) {
       // Clean trailing spaces
@@ -475,6 +483,7 @@ module.exports = (robot) => {
   // ---- Form data Report for all users today ----
   function ReportStandup(room, CronRun) {
     var entry, message, FSURL;
+    robot.logger.info(`standup-formstack-cron: Running standard Standup report to ${room}`);
     // Get dates needed
     Dates = CalcDate();
     DATEFORMAT = Dates[0];
@@ -518,6 +527,7 @@ module.exports = (robot) => {
   function SingleReport(room, user) {
     var message, userfn, userln, usern, FSURL;
     var messageList = [];
+    robot.logger.info(`standup-formstack-cron: Running single Standup report to ${room}`);
     // Get dates needed
     Dates = CalcDate();
     DateFormat = Dates[0];
@@ -558,6 +568,7 @@ module.exports = (robot) => {
   // ---- List users who filled out report today ----
   function FilledItOut(room) {
     var message, userfn, userln, usern;
+    robot.logger.info(`standup-formstack-cron: Running list of users that filled out report to ${room}`);
     // Get dates needed
     Dates = CalcDate();
     DateFormat = Dates[0];
@@ -600,6 +611,7 @@ module.exports = (robot) => {
 
   function HelpReply(room) {
     var message = "";
+    robot.logger.info(`standup-formstack-cron: Displaying Help to ${room}`);
     if (ONHEAR) {
       message += `You can @${robot.name} or I'll listen for *${PREFIX}standup*\n`
     };
