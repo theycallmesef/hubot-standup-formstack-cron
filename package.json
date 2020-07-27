@@ -22,12 +22,13 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
+    "luxon": "",
     "hubot-redis-brain": "",
     "cron": ">=1.7.2"
   },
   "peerDependencies": {
     "coffeescript": ">=1.6.2",
-    "hubot":">=2.0"
+    "hubot": ">=2.0"
   },
   "devDependencies": {
     "coffeescript": ">=1.6",
