@@ -25,6 +25,7 @@ Then add **hubot-standup-formstack-cron** to your `external-scripts.json`:
 Requires a Formstack form and access to Formstack api.\
 [Formstack](https://www.formstack.com/) - "*An intuitive, drag-and-drop form and workflow builder that allows businesses to collect information that matters and automate processes*".
 
+
 ##### Note
 - Formstack form MUST have fields with the following key terms (in any order).
 - The fields do not need to be verbatim and are not case sensitive.
@@ -42,22 +43,32 @@ Requires a Formstack form and access to Formstack api.\
 
 #### **Environment Variables:**
 
+##### A single form can be setup by default using the Environment Variables
+##### Normal setup is done from the built in command
+
 | Key Term | Description |
 | -------- | ----------- |
 | HUBOT_FORMSTACK_TOKEN | (Required) Formstack API Token |
-| HUBOT_FORMSTACK_FORM_ID | (Required) Formstack form ID |
+| HUBOT_FORMSTACK_FORM_ID | (Optional) Formstack form ID |
 | HUBOT_FORMSTACK_PREFIX | (Optional) set a prefix for multiple standup reports |
 | HUBOT_FORMSTACK_HEAR | (Optional) Turn on or off hubot hear (default off) |
 | HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK | (Optional) Filter Formstack submissions within X day ago (default 5 days) |
-| HUBOT_FORMSTACK_CHAT_ROOM_NAME | (Required for reminder and report) Chat room name for auto reminder and report |
-| HUBOT_FORMSTACK_TIMEZONE | (Required for reminder and report) |
+| HUBOT_FORMSTACK_CHAT_ROOM_NAME | (Optional for reminder and report) Chat room name for auto reminder and report |
+| HUBOT_FORMSTACK_TIMEZONE | (Optional for reminder and report) |
 | HUBOT_FORMSTACK_URL | (Optional for reminder) url of the form for auto reminder |
-| HUBOT_FORMSTACK_REMINDER_CRON | (Required for reminder) schedule a reminder to fill the form |
-| HUBOT_FORMSTACK_STANDUP_REPORT_CRON | (Required for auto report) schedule to send the submissions |
+| HUBOT_FORMSTACK_REMINDER_CRON | (Optional for reminder) schedule a reminder to fill the form |
+| HUBOT_FORMSTACK_STANDUP_REPORT_CRON | (Optional for auto report) schedule to send the submissions |
 
 
 ## Commands:
 ```
+hubot standup setup <FORMID> <TIME> <REMINDER> <CRONDAYS> - Setup the script for the first time
+    FORMID - Formstack Form ID\n`;
+    TIME - Time of auto post (8:00am or 14:00)
+    REMINDER - Number of minutes before to send reminder (15) Default 30
+    CRONDAYS - Days to post in cron format (1-5 or 0,1,2,3) 0 = Sunday. Default 1-5 (weekdays)
+    Reminder and crondays can be skipped to accept defaults
+
 hubot standup            List all results of standup form for today
 hubot standup today      List all who have filled out the standup form today
 hubot standup <person>   List <person> results of standup form today (search first and/or last name)
