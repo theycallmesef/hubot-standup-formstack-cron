@@ -48,9 +48,9 @@ TODO:
 
 const FS_TOKEN = process.env.HUBOT_FORMSTACK_TOKEN; //(Required) Formstack API Token
 var PREFIX = process.env.HUBOT_FORMSTACK_PREFIX && (PREFIX = `${process.env.HUBOT_FORMSTACK_PREFIX}-`) || ""; //(Optional) set a prefix for multiple standup reports
-const ONHEAR = process.env.HUBOT_FORMSTACK_HEAR || false; //(Optional) Turn on or off hubot hear (default off)
-const DAYSBACK = process.env.HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK || 5; //(Optional) filter formstack submissions within X day ago
-const TIMEZONE = process.env.HUBOT_FORMSTACK_TIMEZONE || 'America/New_York'; //(Required for reminder and report) Timezone for cron (default 'America/New_York')
+var ONHEAR = process.env.HUBOT_FORMSTACK_HEAR || false; //(Optional) Turn on or off hubot hear (default off)
+var DAYSBACK = process.env.HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK || 5; //(Optional) filter formstack submissions within X day ago
+var TIMEZONE = process.env.HUBOT_FORMSTACK_TIMEZONE || 'America/New_York'; //(Required for reminder and report) Timezone for cron (default 'America/New_York')
 
 
 module.exports = (robot) => {
