@@ -377,9 +377,9 @@ module.exports = (robot) => {
 
       try {
         robot.brain.get(`FS_${room}.FS_FORMID`);
-      } catch {
+      } catch(err) {
         robot.messageRoom(room, `There was an error when removing`);
-        robot.logger.info(`standup-formstack-cron: Form failed to be removed from ${room}`);
+        robot.logger.info(`standup-formstack-cron: Form failed to be removed from ${room}. Error: ${err}`);
       };
 
       robot.messageRoom(room, `Removed form link`);
