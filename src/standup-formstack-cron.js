@@ -132,7 +132,7 @@ module.exports = (robot) => {
           // function to list a single user that filled out the form
           SingleReport(room, rxmatch);
         } else if (rxmatch && rxmatch.toLowerCase().substring(0, 5) === "setup") {
-          robot.messageRoom(room, "There seems to be a form already linked to this room\nIf you would like to replace the current form\nplease run the remove command and then setup the new one.");
+          robot.messageRoom(room, `There seems to be a form already linked to this room (Form ID: ${FS_FORMID})\nIf you would like to replace the current form\nplease run the remove command and then setup the new one.`);
         };
       } else {
         // fuction to list results of form for today
