@@ -43,7 +43,9 @@ Dependencies:
   "cron": ">=1.7.2"
 
 TODO:
-
+  fix cron:
+    - all crons are removed when service is restarted.
+    - There might be an issue with multiple crons
 */
 
 const FS_TOKEN = process.env.HUBOT_FORMSTACK_TOKEN; //(Required) Formstack API Token
@@ -115,7 +117,11 @@ module.exports = (robot) => {
       robot.logger.error("standup-formstack-cron: Missing formstack token. Please add global variable");
       return;
     };
-    GetFormInfoRedis(room);
+    if (!GetFormInfoRedis(room)) {
+      if (FS_FORMID) {
+        GetFormInfo(room);
+      };
+    }
     if (FS_FORMID){
       if (rxmatch) {
         // Logic to seperate the commands
@@ -173,7 +179,7 @@ module.exports = (robot) => {
     // Setup cron
     if (reporttime) {
       // Set date
-      var time = reporttime.split(":");
+      let time = reporttime.split(":");
       // Convert to 24h time
       if (reporttime.match(/pm$/i)) {
         time[0] = time[0] + 12;
@@ -183,27 +189,31 @@ module.exports = (robot) => {
       };
       // Set days if null
       if (!days) {
-        var days = "1-5";
+        let days = "1-5";
       };
       // Set Reminder if null
       if (!remindbeforemin) {
-        var remindbeforemin = "30";
+        let remindbeforemin = "30";
       };
       // Set crons
-      var d = new Date();
+      let d = new Date();
       // set time in date object in order to properlly do time math
       d.setHours(time[0]);
       d.setMinutes(time[1]);
       // Set report cron for time and days
-      var standup_report_cron = `${d.getMinutes()} ${d.getHours()} * * ${days}`;
+      let standup_report_cron = `${d.getMinutes()} ${d.getHours()} * * ${days}`;
       // Set Minutes minus X minutes
       d.setMinutes( d.getMinutes() - remindbeforemin);
       // Set reminder cron for time and days
-      var reminder_cron = `${d.getMinutes()} ${d.getHours()} * * ${days}`;
+      let reminder_cron = `${d.getMinutes()} ${d.getHours()} * * ${days}`;
       // var timezone = ;
 
-      robot.messageRoom(room, `Form reminder (${formid}) setup in this room for ${reporttime} on days ${days}`);
-      SetCron(room, standup_report_cron, reminder_cron);
+      robot.messageRoom(room, `Form reminder (${formid}) will be setup in this room for ${reporttime} on days ${days}`);
+      if (SetCron(room, standup_report_cron, reminder_cron);){
+        robot.messageRoom(room, `Form reminder (${formid}) will be setup in this room for ${reporttime} on days ${days}`);
+      } else {
+        robot.messageRoom(room, `Form reminder (${formid}) failed to be setup\nPlease ask my owner to check the logs`);
+      };
     };
     robot.messageRoom(room, `${formid} - Form has been setup`);
   };
@@ -215,7 +225,11 @@ module.exports = (robot) => {
     if (reminder_cron && room) {
       // Reminder Cron
       reminder_cron_job = new CronJob(reminder_cron, function() {
-        GetFormInfoRedis(room);
+        if (!GetFormInfoRedis(room)) {
+          if (FS_FORMID) {
+            GetFormInfo(room);
+          };
+        };
         robot.messageRoom(room, `@here Time to fill out the <${FS_URL}|stand up report>\n`);
         // fuction to list who has filled out the form
         return FilledItOut(room);
@@ -228,7 +242,11 @@ module.exports = (robot) => {
     if (standup_report_cron && room) {
       // Report results cron
       standup_report_cron_job = new CronJob(standup_report_cron, function() {
-        GetFormInfoRedis(room);
+        if (!GetFormInfoRedis(room)) {
+          if (FS_FORMID) {
+            GetFormInfo(room);
+          };
+        };
         var CronRun = TRUE;
         // fuction to list results of form for today
         return ReportStandup(room, CronRun);
@@ -237,7 +255,14 @@ module.exports = (robot) => {
     } else {
       robot.logger.error("standup-formstack-cron: Missing variable for standup cron");
     };
-    robot.logger.info(`standup-formstack-cron: End cron setup for ${room}`);
+    // Test if cron is Running
+    if (standup_report_cron_job.running && reminder_cron_job.running) {
+      robot.messageRoom(room, `Form reminder setup was successfull`);
+      return true;
+    } else {
+      robot.messageRoom(room, `Form reminder setup was encountered an error`);
+      return false;
+    };
   };
 
   // --- test for empty values in an array ---
@@ -334,12 +359,11 @@ module.exports = (robot) => {
     if (TestArrayValues(FS_ARR)) {
       // got the info
       robot.logger.info(`standup-formstack-cron: Data gathered from redis (${FS_ARR})`);
+      return true;
     } else {
       // Did not get all the info
       robot.logger.info("standup-formstack-cron: Could not read data in at least one var from redis" );
-      if (FS_FORMID) {
-        GetFormInfo(room);
-      };
+      return false;
     };
   };
 
