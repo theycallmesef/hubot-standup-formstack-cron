@@ -22,7 +22,7 @@ Then add **hubot-standup-formstack-cron** to your `external-scripts.json`:
 
 ## Configuration
 
-Requires a Formstack form and access to Formstack api.\
+Requires a Formstack form and access to Formstack api. All forms must be on the same account, and the api key must have access to all of the forms you want to add to this script.\
 [Formstack](https://www.formstack.com/) - "*An intuitive, drag-and-drop form and workflow builder that allows businesses to collect information that matters and automate processes*".
 
 
@@ -49,15 +49,16 @@ Requires a Formstack form and access to Formstack api.\
 | Key Term | Description |
 | -------- | ----------- |
 | HUBOT_FORMSTACK_TOKEN | (Required) Formstack API Token |
-| HUBOT_FORMSTACK_FORM_ID | (Optional) Formstack form ID |
 | HUBOT_FORMSTACK_PREFIX | (Optional) set a prefix for multiple standup reports |
 | HUBOT_FORMSTACK_HEAR | (Optional) Turn on or off hubot hear (default off) |
 | HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK | (Optional) Filter Formstack submissions within X day ago (default 5 days) |
-| HUBOT_FORMSTACK_CHAT_ROOM_NAME | (Optional for reminder and report) Chat room name for auto reminder and report |
-| HUBOT_FORMSTACK_TIMEZONE | (Optional for reminder and report) |
-| HUBOT_FORMSTACK_URL | (Optional for reminder) url of the form for auto reminder |
-| HUBOT_FORMSTACK_REMINDER_CRON | (Optional for reminder) schedule a reminder to fill the form |
-| HUBOT_FORMSTACK_STANDUP_REPORT_CRON | (Optional for auto report) schedule to send the submissions |
+| HUBOT_FORMSTACK_TIMEZONE | (Optional) global timezone for all forms used by the reminder and report |
+|-- **Preset From Options** --||
+| HUBOT_FORMSTACK_FORM_ID | (Optional) Formstack preset form ID |
+| HUBOT_FORMSTACK_URL | (Optional for reminder) url of the preset form for auto reminder |
+| HUBOT_FORMSTACK_CHAT_ROOM_NAME | (Optional for reminder and report) Preset Chat room name for auto reminder and report |
+| HUBOT_FORMSTACK_REMINDER_CRON | (Optional for reminder) Preset schedule a reminder to fill the form |
+| HUBOT_FORMSTACK_STANDUP_REPORT_CRON | (Optional for auto report) Preset schedule to send the submissions |
 
 
 ## Commands:

@@ -3,30 +3,39 @@ Description:
   Report standup notes that were filled in using formstack
 
 Commands:
-  hubot standup - List results of standup form for today
-  hubot standup today - List who has filled out the standup form
-  hubot standup <USERNAME> - List results of standup form for today
+  hubot standup setup <FORMID> <TIME> <REMINDER> <CRONDAYS> - Setup the script for the first time
+      FORMID - Formstack Form ID\n`;
+      TIME - Time of auto post (8:00am or 14:00)
+      REMINDER - Number of minutes before to send reminder (15) Default 30
+      CRONDAYS - Days to post in cron format (1-5 or 0,1,2,3) 0 = Sunday. Default 1-5 (weekdays)
+      Reminder and crondays can be skipped to accept defaults
+
+  hubot standup            List all results of standup form for today
+  hubot standup today      List all who have filled out the standup form today
+  hubot standup <person>   List <person> results of standup form today (search first and/or last name)
 
 Author:
   Seth Rouggly <srouggly@apu.edu>
 
 Configuration:
-  HUBOT_FORMSTACK_TOKEN - (REQUIRED) Formstack API Token
+- Formstack form MUST have fields with the following key terms (in any order).
+- The fields do not need to be verbatim and are not case sensitive.
+- "Date of report" would work for the "Date" field.
 
-  Formstack form MUST have feilds with the following terms (in any order).
-  The fields do not need to be verbatim and are not case sensitive.
-  "Date of report" would work for the "Date" feild:
-    'Date' - (REQUIRED) Formstack date the report is for
-    'Yesterday' - (REQUIRED) Formstack tasks from Yesterday
-    'Today' - (REQUIRED) Formstack tasks for Today
-    'Blocker' or 'Impeding' - (REQUIRED) Blockers or items keeping work or tasks from happening
-    'first name' - (REQUIRED) Formstack User (first or other) name
-    'last name' - (OPTIONAL) Formstack User Last Name
+  Date                  (REQUIRED) Formstack date the report is for
+  Yesterday             (REQUIRED) Formstack tasks from Yesterday
+  Today                 (REQUIRED) Formstack tasks for Today
+  Blocker or Impeding   (REQUIRED) Blockers or items keeping work or tasks from happening
+  First Name            (REQUIRED) Formstack User (first or other) name
+  Last Name             (OPTIONAL) Formstack User Last Name
+
+Environment Variables:
+  HUBOT_FORMSTACK_TOKEN - (REQUIRED) Formstack API Token
 
   HUBOT_FORMSTACK_PREFIX - (OPTIONAL) set a prefix for multiple standup reports
   HUBOT_FORMSTACK_HEAR - (OPTIONAL) Turn on or off hubot hear (default off)
   HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK - (OPTIONAL) Formstack submissions limiter (default 5 days)
-  HUBOT_FORMSTACK_TIMEZONE - (REQUIRED FOR REMINDER) default New York
+  HUBOT_FORMSTACK_TIMEZONE - (Optional) Set Timezone for all forms (default timezone of the form)
 
 Notes:
   Formstack is an online form builder (https://www.formstack.com/)
@@ -49,10 +58,9 @@ TODO:
 */
 
 const FS_TOKEN = process.env.HUBOT_FORMSTACK_TOKEN; //(Required) Formstack API Token
-var PREFIX = process.env.HUBOT_FORMSTACK_PREFIX && (PREFIX = `${process.env.HUBOT_FORMSTACK_PREFIX}-`) || ""; //(Optional) set a prefix for multiple standup reports
+var PREFIX = process.env.HUBOT_FORMSTACK_PREFIX && (PREFIX = `${process.env.HUBOT_FORMSTACK_PREFIX}-`) || ""; //(Optional) set a prefix for multiple standup reports, usually used in combination with "on hear"
 var ONHEAR = process.env.HUBOT_FORMSTACK_HEAR || false; //(Optional) Turn on or off hubot hear (default off)
 var DAYSBACK = process.env.HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK || 5; //(Optional) filter formstack submissions within X day ago
-var TIMEZONE = process.env.HUBOT_FORMSTACK_TIMEZONE || 'America/New_York'; //(Required for reminder and report) Timezone for cron (default 'America/New_York')
 
 
 module.exports = (robot) => {
@@ -70,7 +78,7 @@ module.exports = (robot) => {
   // timezone module
   var { DateTime } = require('luxon');
 
-  // Backwards Compatability
+  // Backwards Compatability set up form from global variables
   if (process.env.HUBOT_FORMSTACK_FORM_ID && process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME) {
     robot.logger.info("standup-formstack-cron: Setting up Form from env's");
     let ID = process.env.HUBOT_FORMSTACK_FORM_ID;
@@ -121,7 +129,7 @@ module.exports = (robot) => {
       if (FS_FORMID) {
         GetFormInfo(room);
       };
-    }
+    };
     if (FS_FORMID){
       if (rxmatch) {
         // Logic to seperate the commands
@@ -134,11 +142,11 @@ module.exports = (robot) => {
         } else if (rxmatch.toLowerCase() === "help") {
         // function to list available commands
           HelpReply(room);
+        } else if (rxmatch && rxmatch.toLowerCase().substring(0, 5) === "setup") {
+          robot.messageRoom(room, `There seems to be a form already linked to this room (Form ID: ${FS_FORMID})\nIf you would like to replace the current form\nplease run the remove command and then setup the new one.`);
         } else if (!["today", "help", "setup", "remove"].includes(rxmatch)) {
           // function to list a single user that filled out the form
           SingleReport(room, rxmatch);
-        } else if (rxmatch && rxmatch.toLowerCase().substring(0, 5) === "setup") {
-          robot.messageRoom(room, `There seems to be a form already linked to this room (Form ID: ${FS_FORMID})\nIf you would like to replace the current form\nplease run the remove command and then setup the new one.`);
         };
       } else {
         // fuction to list results of form for today
@@ -149,6 +157,8 @@ module.exports = (robot) => {
       if (rxmatch && rxmatch.toLowerCase().substring(0, 5) === "setup") {
         // function to setup form to room
         if (msg.match[2]){
+          robot.messageRoom(room, `Setting up connection to form`);
+          robot.logger.info("standup-formstack-cron: Setting up connection to form");
           SetupForm(room, msg.match[2], msg.match[3], msg.match[4], msg.match[5]);
         } else {
           robot.messageRoom(room, "I don't understand the command\nI think there is something missing, please try again");
@@ -163,105 +173,121 @@ module.exports = (robot) => {
 
   // ---- Setup form and cron to room ----
   function SetupForm(room, formid, reporttime, remindbeforemin, days) {
-    robot.messageRoom(room, `Setting up connection to form`);
-    robot.logger.info("standup-formstack-cron: Setting up connection to form");
-    // Make sure formid is a number
+    // Make sure form id is a number
     if (Number.isInteger(Number(formid))) {
       FS_FORMID = formid;
       robot.brain.set(`FS_${room}.FS_FORMID`, FS_FORMID);
     } else {
       robot.messageRoom(room, `The form ID entered (${formid}), is not a number\nPlease try again`);
+      return;
     };
+    // Get form data and "timezone" from Form
+    GetFormInfo(room).then((result) => {
+      if (result) {
+        robot.logger.info(`standup-formstack-cron: Setupform after GetFormInfo - timezone is ${TIMEZONE}`);
+        // Setup cron
+        if (reporttime) {
+          // Set date
+          let time = reporttime.split(":");
+          // Convert to 24h time
+          if (reporttime.match(/pm$/i)) {
+          	if (parseInt(time[0]) !== 12) {
+            	time[0] = parseInt(time[0]) + 12;
+            };
+            time[1] = time[1].slice(0,-2);
+          }else if (reporttime.match(/am$/i)) {
+          	if (parseInt(time[0]) === 12) {
+            	time[0] = parseInt(time[0]) + 12;
+            };
+            time[1] = time[1].slice(0,-2);
+          };
 
-    // Get form data and "timezone"
-    GetFormInfo(room);
-
-    // Setup cron
-    if (reporttime) {
-      // Set date
-      let time = reporttime.split(":");
-      // Convert to 24h time
-      if (reporttime.match(/pm$/i)) {
-        time[0] = time[0] + 12;
-        time[1] = time[1].slice(0,-2);
-      } else if (reporttime.match(/am$/i)) {
-        time[1] = time[1].slice(0,-2);
+          // Set days if undefined
+          // !RegExp('\\d\-\\d|\\d|(\\d\,\\s)+\\d').test(days)
+          if (days === undefined) {
+            days = "1-5";
+          };
+          // Set Reminder if null
+          if (!Number.isInteger(Number(remindbeforemin)) || remindbeforemin === undefined) {
+            remindbeforemin = 30;
+          };
+          // Set crons
+          let d = new Date();
+          // set time in date object in order to properlly do time math
+          d.setHours(time[0]);
+          d.setMinutes(time[1]);
+          // Set report cron for time and days
+          let standup_report_cron = `${d.getMinutes()} ${d.getHours()} * * ${days}`;
+          // Set Minutes minus X minutes
+          d.setMinutes( d.getMinutes() - remindbeforemin);
+          // Set reminder cron for time and days
+          let reminder_cron = `${d.getMinutes()} ${d.getHours()} * * ${days}`;
+          //log built crons
+          robot.logger.info(`standup-formstack-cron: SetupForm: Cron: rpt cron - ${standup_report_cron}: remind_cron - ${reminder_cron}`);
+          // Save cron time to redis
+          robot.brain.set(`FS_${room}.REPORT_CRON`, standup_report_cron);
+          robot.brain.set(`FS_${room}.REMIND_CRON`, reminder_cron);
+          //Setup Cron
+          SetCron(room, standup_report_cron, reminder_cron, TIMEZONE);
+        } else {
+          robot.messageRoom(room, `No report or reminder cron was set`);
+          robot.logger.info(`standup-formstack-cron: No report cron was defined`);
+        };
       };
-      // Set days if null
-      if (!days) {
-        let days = "1-5";
-      };
-      // Set Reminder if null
-      if (!remindbeforemin) {
-        let remindbeforemin = "30";
-      };
-      // Set crons
-      let d = new Date();
-      // set time in date object in order to properlly do time math
-      d.setHours(time[0]);
-      d.setMinutes(time[1]);
-      // Set report cron for time and days
-      let standup_report_cron = `${d.getMinutes()} ${d.getHours()} * * ${days}`;
-      // Set Minutes minus X minutes
-      d.setMinutes( d.getMinutes() - remindbeforemin);
-      // Set reminder cron for time and days
-      let reminder_cron = `${d.getMinutes()} ${d.getHours()} * * ${days}`;
-      // var timezone = ;
-
-      robot.messageRoom(room, `Form reminder (${formid}) will be setup in this room for ${reporttime} on days ${days}`);
-      if (SetCron(room, standup_report_cron, reminder_cron);){
-        robot.messageRoom(room, `Form reminder (${formid}) will be setup in this room for ${reporttime} on days ${days}`);
-      } else {
-        robot.messageRoom(room, `Form reminder (${formid}) failed to be setup\nPlease ask my owner to check the logs`);
-      };
-    };
-    robot.messageRoom(room, `${formid} - Form has been setup`);
+    })
+    .then(result => {
+      robot.logger.info("standup-formstack-cron: SetupForm: Return True");
+      return true;
+    })
+    .catch(err => {
+      robot.logger.info(`standup-formstack-cron: SetupForm: Return False ${err}`);
+      return false;
+    });
   };
 
   // ---- setup auto post and reminder cron ----
-  function SetCron(room, standup_report_cron, reminder_cron){
+  function SetCron(room, standup_report_cron, reminder_cron, timezone){
     robot.logger.info("standup-formstack-cron: Running cron setup");
+    //let reminder_cron_job, standup_report_cron_job;
+    let reminder_cron_job = [];
+    let standup_report_cron_job = [];
+
     // Reminder with names of those who already filled it out cron
     if (reminder_cron && room) {
+      robot.logger.info(`standup-formstack-cron: Setting up reminder cron ${timezone}`);
       // Reminder Cron
-      reminder_cron_job = new CronJob(reminder_cron, function() {
-        if (!GetFormInfoRedis(room)) {
-          if (FS_FORMID) {
-            GetFormInfo(room);
-          };
-        };
+      reminder_cron_job[room] = new CronJob(reminder_cron, function() {
+        GetFormInfoRedis(room);
         robot.messageRoom(room, `@here Time to fill out the <${FS_URL}|stand up report>\n`);
         // fuction to list who has filled out the form
         return FilledItOut(room);
-      }, null, true, TIMEZONE);
-      reminder_cron_job.start;
+        robot.logger.info("standup-formstack-cron: Finish FilledItOut Cron");
+      }, null, true, timezone);
+      robot.logger.info("standup-formstack-cron: Starting Reminder Cron");
+      reminder_cron_job[room].start;
     } else {
       robot.logger.error("standup-formstack-cron: Missing variable for reminder cron");
     };
 
     if (standup_report_cron && room) {
       // Report results cron
-      standup_report_cron_job = new CronJob(standup_report_cron, function() {
-        if (!GetFormInfoRedis(room)) {
-          if (FS_FORMID) {
-            GetFormInfo(room);
-          };
-        };
-        var CronRun = TRUE;
+      standup_report_cron_job[room] = new CronJob(standup_report_cron, function() {
+        GetFormInfoRedis(room);
         // fuction to list results of form for today
-        return ReportStandup(room, CronRun);
-      }, null, true, TIMEZONE);
-      standup_report_cron_job.start;
+        return ReportStandup(room, true);
+      }, null, true, timezone);
+      robot.logger.info("standup-formstack-cron: Starting Report Cron");
+      standup_report_cron_job[room].start;
     } else {
       robot.logger.error("standup-formstack-cron: Missing variable for standup cron");
     };
     // Test if cron is Running
-    if (standup_report_cron_job.running && reminder_cron_job.running) {
-      robot.messageRoom(room, `Form reminder setup was successfull`);
-      return true;
+    if (standup_report_cron_job[room].running && reminder_cron_job[room].running) {
+      robot.messageRoom(room, `Form reminder (${FS_FORMID}) setup was successfull\nNext reminder running at  ${reminder_cron_job[room].nextDates(1)}\nNext report running at ${standup_report_cron_job[room].nextDates(1)}`);
+      //return true;
     } else {
-      robot.messageRoom(room, `Form reminder setup was encountered an error`);
-      return false;
+      robot.messageRoom(room, `Form reminder (${FS_FORMID}) failed to be setup\nPlease ask my owner to check the logs`);
+      //return false;
     };
   };
 
@@ -281,56 +307,65 @@ module.exports = (robot) => {
   // Get info about the form from http webhook (like url and field id's) and then save it to redis (hubot brain)
   function GetFormInfo(room) {
     // set / clear local vars
-    var jdata, FS_RD_ARR;
+    let jdata, FS_RD_ARR;
     FSAPIURL = `https://www.formstack.com/api/v2/form/${FS_FORMID}`;
     FSURL = `${FSAPIURL}.json?oauth_token=${FS_TOKEN}`;
     robot.logger.info(`standup-formstack-cron: Calling API to get form data from formstack (${FSAPIURL})`);
     // Call FS http get function
-    GetFormSubData(room, FSURL, (jdata) => {
-      // Get form url
-      FS_URL = jdata.url;
-      TIMEZONE = jdata.timezone;
-      robot.logger.info("standup-formstack-cron: Pulling form data from formstack");
-      // Get field id's by keyword search
-      for (field of jdata.fields) {
-        if (field.label.toLowerCase().match(/date/i)) {
-          DATEFIELD_ID = field.id;
-        } else if (field.label.toLowerCase().match(/\byesterday\b/i)) {
-          YDAY_ID = field.id;
-        } else if (field.label.toLowerCase().match(/\btoday\b/i)) {
-          TDAY_ID = field.id;
-        } else if (field.label.toLowerCase().match(/\bimped|\bblock/i)) {
-          BLOCK_ID = field.id;
-        } else if (field.label.toLowerCase().match(/\bfirst name\b/i)) {
-          USERFN_ID = field.id;
-        } else if (field.label.toLowerCase().match(/\blast name\b/i)) {
-          USERLN_ID = field.id;
+    return new Promise ((resolve, reject) => {
+      GetFormSubData(room, FSURL, (jdata) => {
+        // Get form url
+        FS_URL = jdata.url;
+        TIMEZONE = jdata.timezone;
+        robot.logger.info(`standup-formstack-cron: GetFormInfo - timezone is ${TIMEZONE}`);
+        robot.logger.info("standup-formstack-cron: Pulling form data from formstack json");
+        // Get field id's by keyword search
+        for (field of jdata.fields) {
+          if (field.label.toLowerCase().match(/date/i)) {
+            DATEFIELD_ID = field.id;
+          } else if (field.label.toLowerCase().match(/\byesterday\b/i)) {
+            YDAY_ID = field.id;
+          } else if (field.label.toLowerCase().match(/\btoday\b/i)) {
+            TDAY_ID = field.id;
+          } else if (field.label.toLowerCase().match(/\bimped|\bblock/i)) {
+            BLOCK_ID = field.id;
+          } else if (field.label.toLowerCase().match(/\bfirst name\b/i)) {
+            USERFN_ID = field.id;
+          } else if (field.label.toLowerCase().match(/\blast name\b/i)) {
+            USERLN_ID = field.id;
+          };
         };
-      };
-      // Array of all required formstack vars
-      var FS_RD_ARR = [FS_FORMID, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID];
-      // test array and write vars to redis
-      if (TestArrayValues(FS_RD_ARR)) {
-        try {
-          robot.brain.set(`FS_${room}.FS_URL`, FS_URL);
-          robot.brain.set(`FS_${room}.FS_FORMID`, FS_FORMID);
-          robot.brain.set(`FS_${room}.DATEFIELD_ID`, DATEFIELD_ID);
-          robot.brain.set(`FS_${room}.YDAY_ID`, YDAY_ID);
-          robot.brain.set(`FS_${room}.TDAY_ID`, TDAY_ID);
-          robot.brain.set(`FS_${room}.BLOCK_ID`, BLOCK_ID);
-          robot.brain.set(`FS_${room}.USERFN_ID`, USERFN_ID);
-          robot.brain.set(`FS_${room}.USERLN_ID`, USERLN_ID);
-          robot.brain.set(`FS_${room}.FSAPIURL`, FSAPIURL);
-          robot.brain.set(`FS_${room}.TIMEZONE`, TIMEZONE);
-        } catch(err) {
-          robot.logger.error(`standup-formstack-cron: Error saving to redis ${err}`);
+
+        // Array of all required formstack vars
+        FS_RD_ARR = [FS_FORMID, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID];
+        // test array and write vars to redis
+        if (TestArrayValues(FS_RD_ARR)) {
+          try {
+            robot.brain.set(`FS_${room}.FS_URL`, FS_URL);
+            robot.brain.set(`FS_${room}.FS_FORMID`, FS_FORMID);
+            robot.brain.set(`FS_${room}.DATEFIELD_ID`, DATEFIELD_ID);
+            robot.brain.set(`FS_${room}.YDAY_ID`, YDAY_ID);
+            robot.brain.set(`FS_${room}.TDAY_ID`, TDAY_ID);
+            robot.brain.set(`FS_${room}.BLOCK_ID`, BLOCK_ID);
+            robot.brain.set(`FS_${room}.USERFN_ID`, USERFN_ID);
+            robot.brain.set(`FS_${room}.USERLN_ID`, USERLN_ID);
+            robot.brain.set(`FS_${room}.FSAPIURL`, FSAPIURL);
+            robot.brain.set(`FS_${room}.TIMEZONE`, TIMEZONE);
+          } catch(err) {
+            robot.logger.error(`standup-formstack-cron: Error saving to redis ${err}`);
+            reject("error");
+          };
+        } else {
+          robot.logger.error(`standup-formstack-cron: One or more variables are empty ${FS_RD_ARR}`);
+          robot.messageRoom(room, "I was not able to find the form, Please ask my owner to check the logs");
+          reject("error");
         };
-      } else {
-        robot.logger.error(`standup-formstack-cron: One or more variables are empty ${FS_RD_ARR}`);
-        robot.messageRoom(room, "I was not able to find the form, Please ask my owner to check the logs");
-      };
+          robot.logger.info(`standup-formstack-cron: Form values were successfully pulled and saved to redis`);
+        resolve("Done");
+      });
     });
   };
+
 
   // ---- Pull Data From Redis ----
   // Get info about the form saved in redis (like url and field id's)
@@ -349,6 +384,8 @@ module.exports = (robot) => {
       USERLN_ID = robot.brain.get(`FS_${room}.USERLN_ID`);
       FSAPIURL = robot.brain.get(`FS_${room}.FSAPIURL`);
       TIMEZONE = robot.brain.get(`FS_${room}.TIMEZONE`);
+      REPORT_CRON = robot.brain.get(`FS_${room}.REPORT_CRON`);
+      REMIND_CRON = robot.brain.get(`FS_${room}.REMIND_CRON`);
     } catch(err) {
       robot.logger.error(`standup-formstack-cron: Error retreving from redis ${err}`);
     };
@@ -386,29 +423,29 @@ module.exports = (robot) => {
     } catch(err) {
       robot.messageRoom(room, `There was an issue, please have my owner check my logs`);
       robot.logger.error(`standup-formstack-cron: Error deleting values in brain ${err}`);
+      return;
     };
-    if (!err) {
-      // unset vars
-      FS_URL = undefined;
-      FS_FORMID = undefined;
-      DATEFIELD_ID = undefined;
-      YDAY_ID = undefined;
-      TDAY_ID = undefined;
-      BLOCK_ID = undefined;
-      USERFN_ID = undefined;
-      USERLN_ID = undefined;
-      FSAPIURL = undefined;
+    // unset vars
+    delete FS_URL;
+    delete FS_FORMID;
+    delete DATEFIELD_ID;
+    delete YDAY_ID;
+    delete TDAY_ID;
+    delete BLOCK_ID;
+    delete USERFN_ID;
+    delete USERLN_ID;
+    delete FSAPIURL;
 
-      try {
-        robot.brain.get(`FS_${room}.FS_FORMID`);
-      } catch(err) {
-        robot.messageRoom(room, `There was an error when removing`);
-        robot.logger.info(`standup-formstack-cron: Form failed to be removed from ${room}. Error: ${err}`);
-      };
-
-      robot.messageRoom(room, `Removed form link`);
-      robot.logger.info(`standup-formstack-cron: Form has been removed from ${room}`);
+    try {
+      robot.brain.get(`FS_${room}.FS_FORMID`);
+    } catch(err) {
+      robot.messageRoom(room, `There was an error when removing`);
+      robot.logger.info(`standup-formstack-cron: Form failed to be removed from ${room}. Error: ${err}`);
+      return;
     };
+
+    robot.messageRoom(room, `Removed form link`);
+    robot.logger.info(`standup-formstack-cron: Form has been removed from ${room}`);
   };
 
   // ---- Date calculator and formater ----
@@ -437,9 +474,10 @@ module.exports = (robot) => {
     };
   };
 
+
   // ---- Return json from formstack web request ----
   // "room" and "fsurl" are passed in, "jbody" is the return
-  function GetFormSubData(room, fsurl, jbody) {
+  function GetFormSubData(room, fsurl, callback) {
     robot.logger.info("standup-formstack-cron: Gathering json data from form api");
     // Get json of form submissions
     robot.http(fsurl)
@@ -451,20 +489,20 @@ module.exports = (robot) => {
         robot.logger.error(`standup-formstack-cron: Error connecting to formstack: ${res}`);
         return;
       } else {
-        var jdata = JSON.parse(body);
+        let jdata = JSON.parse(body);
         if (jdata.error) {
           robot.messageRoom(room, "Somethings not right, have my owner take a look at my logs");
           robot.logger.error(`standup-formstack-cron: Error retreving data: ${jdata.error}`);
         };
         // send results to return function
         robot.logger.info(`standup-formstack-cron: Data retrived from API`);
-        jbody(jdata);
+        callback(jdata);
       };
     });
   };
 
   // ---- Format and Clean message data ----
-  function FormatClean(entry, clnmessage) {
+  function FormatClean(entry, callback) {
     var yday, tday, block, message, userfn, userln, usern;
     robot.logger.info(`standup-formstack-cron: Cleaning format of text for report`);
     // fuction to clean up submission text
@@ -501,7 +539,7 @@ module.exports = (robot) => {
     if (block !== "Nothing") {
       message += `\n\t*_Blockers:_*\n${CleanTxt(block)}`;
     };
-    clnmessage(message);
+    callback(message);
   };
 
   // ---- Form data Report for all users today ----
@@ -517,33 +555,36 @@ module.exports = (robot) => {
 
     // Callback return function of pased json from url
     GetFormSubData(room, FSURL, (jdata) => {
-      // loop filtered submissions
-      for (entry of jdata.submissions) {
-        // get date in form
-        datefield = entry.data[DATEFIELD_ID].value;
-        // Parse submissions and match for today
-        if (datefield === DATEFORMAT) {
-          FormatClean(entry, (message) => {
-            robot.messageRoom(room, message);
-          });
+        // loop filtered submissions
+        for (entry of jdata.submissions) {
+          // get date in form
+          datefield = entry.data[DATEFIELD_ID].value;
+          // Parse submissions and match for today
+          if (datefield === DATEFORMAT) {
+            FormatClean(entry, (ClnMessage) => {
+              // Save data to var in higher scope
+              message = ClnMessage;
+              // post message for each matach
+              robot.messageRoom(room, message);
+            });
+          };
         };
-      };
-      if (!message && CronRun) {
-        // Funny messages hubot sends if no results are found
-        var gone = [
-          "Sooooo... Is everyone on holiday?",
-          "Nothing? Was it something I said?",
-          "Do you wanna build a snowman?... It doesn't have to be snowman... OK, bye",
-          ":notes:Here I go agian on my own!:notes:\n\tGoing down the only road I've ever know!:notes:",
-          "Bueller? Bueller?... Bueller?....... Bueller?",
-          "https://media.giphy.com/media/jNH0Bto1xBNwQ/giphy.gif",
-          "Today was a day off wasn't it?... I wish I had a day off",
-          "Great! I'm going back to sleep",
-          `:rotating_light: ${robot.name} dance party!! :rotating_light: \n\thttps://media.giphy.com/media/v0YiARQxj1yc8/giphy.gif`,
-          `*${robot.name} * - ${DATEFORMAT}\n\t*_Yesterday:_*\n\t\- Report Standup\n\t\- Answer Questions\n\t\- Other duties as assigned\n\t*_Today:_*\n\t\- Report Standup\n\t\- Answer Questions\n\t\- Other duties as assigned\n\t*_Blockers:_*\n\t\- No one is here`
-        ];
-        robot.messageRoom(room, gone[Math.floor(Math.random()*gone.length)]);
-      };
+        // post Funny message if no results are found
+        if (!message && CronRun) {
+          var gone = [
+            "Sooooo... Is everyone on holiday?",
+            "Nothing? Was it something I said?",
+            "Do you wanna build a snowman?... It doesn't have to be snowman... OK, bye",
+            ":notes:Here I go agian on my own!:notes:\n\tGoing down the only road I've ever know!:notes:",
+            "Bueller? Bueller?... Bueller?....... Bueller?",
+            "https://media.giphy.com/media/jNH0Bto1xBNwQ/giphy.gif",
+            "Today was a day off wasn't it?... I wish I had a day off",
+            "Great! I'm going back to sleep",
+            `:rotating_light: ${robot.name} dance party!! :rotating_light: \n\thttps://media.giphy.com/media/v0YiARQxj1yc8/giphy.gif`,
+            `*${robot.name} * - ${DATEFORMAT}\n\t*_Yesterday:_*\n\t\- Report Standup\n\t\- Answer Questions\n\t\- Other duties as assigned\n\t*_Today:_*\n\t\- Report Standup\n\t\- Answer Questions\n\t\- Other duties as assigned\n\t*_Blockers:_*\n\t\- No one is here`
+          ];
+          robot.messageRoom(room, gone[Math.floor(Math.random()*gone.length)]);
+        };
     });
   };
 
@@ -604,7 +645,7 @@ module.exports = (robot) => {
       // loop filtered submissions
       for (entry of jdata.submissions) {
         userfn = entry.data[USERFN_ID].value;
-         datefield = entry.data[DATEFIELD_ID].value;
+        datefield = entry.data[DATEFIELD_ID].value;
         if (USERLN_ID) {
            userln = entry.data[USERLN_ID].value;
         };
@@ -616,12 +657,9 @@ module.exports = (robot) => {
         };
       };
       // comma seperate users array and replace last comma with "and"
-      userList = users.join(", ").replace(/, ([^,]+)$/, ' and $1');
+      userList = users.join(", ").replace(/, ([^,]+)$/, ' and $1') || "No one";
       // set message and grammer to fit results
-      if (users.length === 0) {
-        // message for no users
-        message = "No one has filled out the report for today";
-      } else if (users.length === 1) {
+      if (users.length <= 1) {
         // message for 1 user
         message = `${userList} has filled out the report for today`;
       } else {
