@@ -73,6 +73,7 @@ hubot standup setup <FORMID> <TIME> <REMINDER> <CRONDAYS> - Setup the script for
 hubot standup            List all results of standup form for today
 hubot standup today      List all who have filled out the standup form today
 hubot standup <person>   List <person> results of standup form today (search first and/or last name)
+hubot standup remove     Remove the standup link form the room
 ```
 
 ## Sample Interaction:
