@@ -114,8 +114,8 @@ module.exports = (robot) => {
           let timezone = robot.brain.get(`FS_${room}.TIMEZONE`);
           SetCron(room, standup_report_cron, reminder_cron, timezone);
         };
-      } catch {
-        robot.logger.info("standup-formstack-cron: Failed to gather rooms with forms setup from redis");
+      } catch(err) {
+        robot.logger.info(`standup-formstack-cron: Failed to gather rooms with forms setup from redis ${err}`);
       };
     };
   });
