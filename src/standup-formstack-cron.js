@@ -430,6 +430,7 @@ module.exports = (robot) => {
 
   // ---- remove a standup form from a room ----
   function RemoveStandup(room) {
+    robot.messageRoom(room, `Removing link to form ID ${FS_FORMID} from this room`);
     robot.logger.info(`standup-formstack-cron: Removing form link ID ${FS_FORMID} from room ${room}`);
     // remove brain entries
     try {
@@ -486,7 +487,7 @@ module.exports = (robot) => {
     rooms = rooms.filter(e => e !== room);
     robot.brain.set(`FS_Rooms`, rooms);
 
-    robot.messageRoom(room, `Removed ${FS_FORMID} form link from this room`);
+    robot.messageRoom(room, `Removal Complete`);
     robot.logger.info(`standup-formstack-cron: Form has been removed from room ${room}`);
   };
 
