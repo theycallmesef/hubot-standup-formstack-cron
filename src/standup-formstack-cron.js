@@ -75,9 +75,19 @@ module.exports = (robot) => {
   // timezone module
   var { DateTime } = require('luxon');
 
-  // setup global arrays for cron's
+  // setup global arrays to store vars for each room
   REMINDER_CRON_JOB = [];
   STANDUP_REPORT_CRON_JOB = [];
+  FS_URL = [];
+  FS_FORMID = [];
+  DATEFIELD_ID = [];
+  YDAY_ID = [];
+  TDAY_ID = [];
+  BLOCK_ID = [];
+  USERFN_ID = [];
+  USERLN_ID = [];
+  FSAPIURL = [];
+  TIMEZONE = [];
 
   // Backwards Compatability set up form from global variables
   if (process.env.HUBOT_FORMSTACK_FORM_ID && process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME) {
@@ -140,7 +150,6 @@ module.exports = (robot) => {
   // Parse responce for commands
   function BotRespond(msg) {
     let room, rxmatch;
-    rooms = robot.brain.get(`FS_Rooms`);
     room = msg.message.room;
     rxmatch = msg.match[1];
     robot.logger.info("standup-formstack-cron: Bot responding to command");
@@ -151,11 +160,11 @@ module.exports = (robot) => {
       return;
     };
     if (!GetFormInfoRedis(room)) {
-      if (FS_FORMID) {
+      if (FS_FORMID[room]) {
         GetFormInfo(room);
       };
     };
-    if (FS_FORMID){
+    if (FS_FORMID[room]){
       if (rxmatch) {
         // Logic to seperate the commands
         if (rxmatch.toLowerCase() === "today") {
@@ -200,8 +209,8 @@ module.exports = (robot) => {
   function SetupForm(room, formid, reporttime, remindbeforemin, days) {
     // Make sure form id is a number
     if (Number.isInteger(Number(formid))) {
-      FS_FORMID = formid;
-      robot.brain.set(`FS_${room}.FS_FORMID`, FS_FORMID);
+      FS_FORMID[room] = formid;
+      robot.brain.set(`FS_${room}.FS_FORMID`, FS_FORMID[room]);
     } else {
       robot.messageRoom(room, `The form ID entered (${formid}), is not a number\nPlease try again`);
       return;
@@ -252,7 +261,7 @@ module.exports = (robot) => {
           robot.brain.set(`FS_${room}.REPORT_CRON`, standup_report_cron);
           robot.brain.set(`FS_${room}.REMIND_CRON`, reminder_cron);
           //Setup Cron
-          SetCron(room, standup_report_cron, reminder_cron, TIMEZONE);
+          SetCron(room, standup_report_cron, reminder_cron, TIMEZONE[room]);
         } else {
           robot.messageRoom(room, `No report or reminder cron was set`);
           robot.logger.info(`standup-formstack-cron: No report cron was defined`);
@@ -283,7 +292,7 @@ module.exports = (robot) => {
       // Reminder Cron
       REMINDER_CRON_JOB[room] = new CronJob(reminder_cron, function() {
         GetFormInfoRedis(room);
-        robot.messageRoom(room, `@here Time to fill out the <${FS_URL}|stand up report>\n`);
+        robot.messageRoom(room, `@here Time to fill out the <${FS_URL[room]}|stand up report>\n`);
         // fuction to list who has filled out the form
         return FilledItOut(room);
         robot.logger.info("standup-formstack-cron: Finish FilledItOut Cron");
@@ -308,10 +317,10 @@ module.exports = (robot) => {
     };
     // Test if cron is Running
     if (STANDUP_REPORT_CRON_JOB[room].running && REMINDER_CRON_JOB[room].running) {
-      robot.messageRoom(room, `Form reminder (${FS_FORMID}) setup was successfull\nNext reminder running at  ${REMINDER_CRON_JOB[room].nextDates(1)}\nNext report running at ${STANDUP_REPORT_CRON_JOB[room].nextDates(1)}`);
+      robot.messageRoom(room, `Form reminder (${FS_FORMID[room]}) setup was successfull\nNext reminder running at  ${REMINDER_CRON_JOB[room].nextDates(1)}\nNext report running at ${STANDUP_REPORT_CRON_JOB[room].nextDates(1)}`);
       //return true;
     } else {
-      robot.messageRoom(room, `Form reminder (${FS_FORMID}) failed to be setup\nPlease ask my owner to check the logs`);
+      robot.messageRoom(room, `Form reminder (${FS_FORMID[room]}) failed to be setup\nPlease ask my owner to check the logs`);
       //return false;
     };
   };
@@ -333,48 +342,48 @@ module.exports = (robot) => {
   function GetFormInfo(room) {
     // set / clear local vars
     let jdata, FS_RD_ARR;
-    FSAPIURL = `https://www.formstack.com/api/v2/form/${FS_FORMID}`;
-    FSURL = `${FSAPIURL}.json?oauth_token=${FS_TOKEN}`;
-    robot.logger.info(`standup-formstack-cron: Calling API to get form data from formstack (${FSAPIURL})`);
+    FSAPIURL[room] = `https://www.formstack.com/api/v2/form/${FS_FORMID[room]}`;
+    FSURL = `${FSAPIURL[room]}.json?oauth_token=${FS_TOKEN}`;
+    robot.logger.info(`standup-formstack-cron: Calling API to get form data from formstack (${FSAPIURL[room]})`);
     // Call FS http get function
     return new Promise ((resolve, reject) => {
       GetFormSubData(room, FSURL, (jdata) => {
         // Get form url
-        FS_URL = jdata.url;
-        TIMEZONE = jdata.timezone;
+        FS_URL[room] = jdata.url;
+        TIMEZONE[room] = jdata.timezone;
         robot.logger.info("standup-formstack-cron: Pulling form data from formstack json");
         // Get field id's by keyword search
         for (field of jdata.fields) {
           if (field.label.toLowerCase().match(/date/i)) {
-            DATEFIELD_ID = field.id;
+            DATEFIELD_ID[room] = field.id;
           } else if (field.label.toLowerCase().match(/\byesterday\b/i)) {
-            YDAY_ID = field.id;
+            YDAY_ID[room] = field.id;
           } else if (field.label.toLowerCase().match(/\btoday\b/i)) {
-            TDAY_ID = field.id;
+            TDAY_ID[room] = field.id;
           } else if (field.label.toLowerCase().match(/\bimped|\bblock/i)) {
-            BLOCK_ID = field.id;
+            BLOCK_ID[room] = field.id;
           } else if (field.label.toLowerCase().match(/\bfirst name\b/i)) {
-            USERFN_ID = field.id;
+            USERFN_ID[room] = field.id;
           } else if (field.label.toLowerCase().match(/\blast name\b/i)) {
-            USERLN_ID = field.id;
+            USERLN_ID[room] = field.id;
           };
         };
 
         // Array of all required formstack vars
-        FS_RD_ARR = [FS_FORMID, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID];
+        FS_RD_ARR = [FS_FORMID[room], DATEFIELD_ID[room], YDAY_ID[room], TDAY_ID[room], BLOCK_ID[room], USERFN_ID[room]];
         // test array and write vars to redis
         if (TestArrayValues(FS_RD_ARR)) {
           try {
-            robot.brain.set(`FS_${room}.FS_URL`, FS_URL);
-            robot.brain.set(`FS_${room}.FS_FORMID`, FS_FORMID);
-            robot.brain.set(`FS_${room}.DATEFIELD_ID`, DATEFIELD_ID);
-            robot.brain.set(`FS_${room}.YDAY_ID`, YDAY_ID);
-            robot.brain.set(`FS_${room}.TDAY_ID`, TDAY_ID);
-            robot.brain.set(`FS_${room}.BLOCK_ID`, BLOCK_ID);
-            robot.brain.set(`FS_${room}.USERFN_ID`, USERFN_ID);
-            robot.brain.set(`FS_${room}.USERLN_ID`, USERLN_ID);
-            robot.brain.set(`FS_${room}.FSAPIURL`, FSAPIURL);
-            robot.brain.set(`FS_${room}.TIMEZONE`, TIMEZONE);
+            robot.brain.set(`FS_${room}.FS_URL`, FS_URL[room]);
+            robot.brain.set(`FS_${room}.FS_FORMID`, FS_FORMID[room]);
+            robot.brain.set(`FS_${room}.DATEFIELD_ID`, DATEFIELD_ID[room]);
+            robot.brain.set(`FS_${room}.YDAY_ID`, YDAY_ID[room]);
+            robot.brain.set(`FS_${room}.TDAY_ID`, TDAY_ID[room]);
+            robot.brain.set(`FS_${room}.BLOCK_ID`, BLOCK_ID[room]);
+            robot.brain.set(`FS_${room}.USERFN_ID`, USERFN_ID[room]);
+            robot.brain.set(`FS_${room}.USERLN_ID`, USERLN_ID[room]);
+            robot.brain.set(`FS_${room}.FSAPIURL`, FSAPIURL[room]);
+            robot.brain.set(`FS_${room}.TIMEZONE`, TIMEZONE[room]);
           } catch(err) {
             robot.logger.error(`standup-formstack-cron: Error saving to redis ${err}`);
             reject("error");
@@ -398,24 +407,22 @@ module.exports = (robot) => {
     robot.logger.info("standup-formstack-cron: Gathering data from redis");
     // Set vars from redis data
     try {
-      FS_URL = robot.brain.get(`FS_${room}.FS_URL`);
-      FS_FORMID = robot.brain.get(`FS_${room}.FS_FORMID`);
-      DATEFIELD_ID = robot.brain.get(`FS_${room}.DATEFIELD_ID`);
-      YDAY_ID = robot.brain.get(`FS_${room}.YDAY_ID`);
-      TDAY_ID = robot.brain.get(`FS_${room}.TDAY_ID`);
-      BLOCK_ID = robot.brain.get(`FS_${room}.BLOCK_ID`);
-      USERFN_ID = robot.brain.get(`FS_${room}.USERFN_ID`);
-      USERLN_ID = robot.brain.get(`FS_${room}.USERLN_ID`);
-      FSAPIURL = robot.brain.get(`FS_${room}.FSAPIURL`);
-      TIMEZONE = robot.brain.get(`FS_${room}.TIMEZONE`);
-      REPORT_CRON = robot.brain.get(`FS_${room}.REPORT_CRON`);
-      REMIND_CRON = robot.brain.get(`FS_${room}.REMIND_CRON`);
+      FS_URL[room] = robot.brain.get(`FS_${room}.FS_URL`);
+      FS_FORMID[room] = robot.brain.get(`FS_${room}.FS_FORMID`);
+      DATEFIELD_ID[room] = robot.brain.get(`FS_${room}.DATEFIELD_ID`);
+      YDAY_ID[room] = robot.brain.get(`FS_${room}.YDAY_ID`);
+      TDAY_ID[room] = robot.brain.get(`FS_${room}.TDAY_ID`);
+      BLOCK_ID[room] = robot.brain.get(`FS_${room}.BLOCK_ID`);
+      USERFN_ID[room] = robot.brain.get(`FS_${room}.USERFN_ID`);
+      USERLN_ID[room] = robot.brain.get(`FS_${room}.USERLN_ID`);
+      FSAPIURL[room] = robot.brain.get(`FS_${room}.FSAPIURL`);
+      TIMEZONE[room] = robot.brain.get(`FS_${room}.TIMEZONE`);
     } catch(err) {
       robot.logger.error(`standup-formstack-cron: Error retreving from redis ${err}`);
     };
 
     // Array of required formstack vars
-    FS_ARR = [FS_FORMID, DATEFIELD_ID, YDAY_ID, TDAY_ID, BLOCK_ID, USERFN_ID];
+    FS_ARR = [FS_FORMID[room], DATEFIELD_ID[room], YDAY_ID[room], TDAY_ID[room], BLOCK_ID[room], USERFN_ID[room]];
     // test array of vars pulled from redis
     if (TestArrayValues(FS_ARR)) {
       // got the info
@@ -430,8 +437,8 @@ module.exports = (robot) => {
 
   // ---- remove a standup form from a room ----
   function RemoveStandup(room) {
-    robot.messageRoom(room, `Removing link to form ID ${FS_FORMID} from this room`);
-    robot.logger.info(`standup-formstack-cron: Removing form link ID ${FS_FORMID} from room ${room}`);
+    robot.messageRoom(room, `Removing link to form ID ${FS_FORMID[room]} from this room`);
+    robot.logger.info(`standup-formstack-cron: Removing form link ID ${FS_FORMID[room]} from room ${room}`);
     // remove brain entries
     try {
       robot.brain.remove(`FS_${room}.FS_URL`);
@@ -450,15 +457,15 @@ module.exports = (robot) => {
       return;
     };
     // unset vars
-    delete FS_URL;
-    delete FS_FORMID;
-    delete DATEFIELD_ID;
-    delete YDAY_ID;
-    delete TDAY_ID;
-    delete BLOCK_ID;
-    delete USERFN_ID;
-    delete USERLN_ID;
-    delete FSAPIURL;
+    delete FS_URL[room];
+    delete FS_FORMID[room];
+    delete DATEFIELD_ID[room];
+    delete YDAY_ID[room];
+    delete TDAY_ID[room];
+    delete BLOCK_ID[room];
+    delete USERFN_ID[room];
+    delete USERLN_ID[room];
+    delete FSAPIURL[room];
 
     try {
       robot.brain.get(`FS_${room}.FS_FORMID`);
@@ -481,8 +488,8 @@ module.exports = (robot) => {
     };
 
     // remove room from list in redis
-    let rooms = [];
-    rooms = robot.brain.get(`FS_Rooms`);
+    let rooms = robot.brain.get(`FS_Rooms`) || [];
+
     // filter out room to remove
     rooms = rooms.filter(e => e !== room);
     robot.brain.set(`FS_Rooms`, rooms);
@@ -493,10 +500,10 @@ module.exports = (robot) => {
 
   // ---- Date calculator and formater ----
   // returns formated current date "DATEFORMAT" and lookback date "MINDATE"
-  function CalcDate() {
+  function CalcDate(room) {
     robot.logger.info(`standup-formstack-cron: Running calculations for the date`);
     // TODO set date time to match timezone var time
-    DateTime.local().setZone(TIMEZONE);
+    DateTime.local().setZone(TIMEZONE[room]);
     let TODAY = new Date;
     let TODAYBACK = new Date;
     // Set date lookback XX amount of days
@@ -545,7 +552,7 @@ module.exports = (robot) => {
   };
 
   // ---- Format and Clean message data ----
-  function FormatClean(entry, clnmessage) {
+  function FormatClean(room, entry, clnmessage) {
     let yday, tday, block, message, userfn, userln, usern;
     robot.logger.info(`standup-formstack-cron: Cleaning format of text for report`);
     // fuction to clean up submission text
@@ -561,13 +568,13 @@ module.exports = (robot) => {
     };
 
     // set vars for text from json data
-    datefield = entry.data[DATEFIELD_ID].value;
-    userfn = entry.data[USERFN_ID].value;
-    yday = entry.data[YDAY_ID].value;
-    tday = entry.data[TDAY_ID].value;
-    block = entry.data[BLOCK_ID].value;
-    if (USERLN_ID) {
-      userln = entry.data[USERLN_ID].value;
+    datefield = entry.data[DATEFIELD_ID[room]].value;
+    userfn = entry.data[USERFN_ID[room]].value;
+    yday = entry.data[YDAY_ID[room]].value;
+    tday = entry.data[TDAY_ID[room]].value;
+    block = entry.data[BLOCK_ID[room]].value;
+    if (USERLN_ID[room]) {
+      userln = entry.data[USERLN_ID[room]].value;
     };
     // Join first and last if last exist
     usern = [userfn, userln].filter(Boolean).join(" ");
@@ -590,21 +597,21 @@ module.exports = (robot) => {
     let entry, message, FSURL;
     robot.logger.info(`standup-formstack-cron: Running standard Standup report to room ${room}`);
     // Get dates needed
-    Dates = CalcDate();
+    Dates = CalcDate(room);
     DATEFORMAT = Dates[0];
     MINDATE = Dates[1];
     // formstack url with form ID, token (oauth_token) and date range filter (min_time)
-    FSURL = `${FSAPIURL}/submission.json?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`;
+    FSURL = `${FSAPIURL[room]}/submission.json?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`;
 
     // Callback return function of pased json from url
     GetFormSubData(room, FSURL, (jdata) => {
         // loop filtered submissions
         for (entry of jdata.submissions) {
           // get date in form
-          datefield = entry.data[DATEFIELD_ID].value;
+          datefield = entry.data[DATEFIELD_ID[room]].value;
           // Parse submissions and match for today
           if (datefield === DATEFORMAT) {
-            FormatClean(entry, (ClnMessage) => {
+            FormatClean(room, entry, (ClnMessage) => {
               // Save data to var in higher scope
               message = ClnMessage;
               // post message for each matach
@@ -637,18 +644,18 @@ module.exports = (robot) => {
     let messageList = [];
     robot.logger.info(`standup-formstack-cron: Running single Standup report to room ${room}`);
     // Get dates needed
-    Dates = CalcDate();
+    Dates = CalcDate(room);
     DateFormat = Dates[0];
     MINDATE = Dates[1];
-    FSURL = `${FSAPIURL}/submission.json?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`;
+    FSURL = `${FSAPIURL[room]}/submission.json?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`;
     // Callback return function of pased json from url
     GetFormSubData(room, FSURL, (jdata) => {
       // loop filtered submissions
       for (entry of jdata.submissions) {
-        userfn = entry.data[USERFN_ID].value;
-        datefield = entry.data[DATEFIELD_ID].value;
-        if (USERLN_ID) {
-          userln = entry.data[USERLN_ID].value;
+        userfn = entry.data[USERFN_ID[room]].value;
+        datefield = entry.data[DATEFIELD_ID[room]].value;
+        if (USERLN_ID[room]) {
+          userln = entry.data[USERLN_ID[room]].value;
         };
         // Join first and last if last exist
         usern = [userfn, userln].filter(Boolean).join(" ");
@@ -658,7 +665,7 @@ module.exports = (robot) => {
           if (usern.toLowerCase() === user.toLowerCase()
               || userfn.toLowerCase() === user.toLowerCase()
               || userln.toLowerCase() === user.toLowerCase()) {
-            FormatClean(entry, (RtrnMessage) => {
+            FormatClean(room, entry, (RtrnMessage) => {
               messageList.push(RtrnMessage);
             });
           };
@@ -678,19 +685,19 @@ module.exports = (robot) => {
     let message, userfn, userln, usern;
     robot.logger.info(`standup-formstack-cron: Running list of users that filled out report to room ${room}`);
     // Get dates needed
-    Dates = CalcDate();
+    Dates = CalcDate(room);
     DateFormat = Dates[0];
     MINDATE = Dates[1];
-    FSURL = `${FSAPIURL}/submission.json?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`;
+    FSURL = `${FSAPIURL[room]}/submission.json?data=true&expand_data=false&min_time=${encodeURI(MINDATE)}&oauth_token=${FS_TOKEN}`;
     // Callback return function of pased json from url
     GetFormSubData(room, FSURL, (jdata) => {
       let users = [];
       // loop filtered submissions
       for (entry of jdata.submissions) {
-        userfn = entry.data[USERFN_ID].value;
-        datefield = entry.data[DATEFIELD_ID].value;
-        if (USERLN_ID) {
-           userln = entry.data[USERLN_ID].value;
+        userfn = entry.data[USERFN_ID[room]].value;
+        datefield = entry.data[DATEFIELD_ID[room]].value;
+        if (USERLN_ID[room]) {
+           userln = entry.data[USERLN_ID[room]].value;
         };
         // Join first and last if last exist
         usern = [userfn, userln].filter(Boolean).join(" ");
