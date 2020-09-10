@@ -15,7 +15,7 @@ Commands:
   hubot standup <person>   List <person> results of standup form today (search first and/or last name)
 
 Author:
-  Seth Rouggly <srouggly@apu.edu>
+  theycallmesef
 
 Configuration:
 - Formstack form MUST have fields with the following key terms (in any order).
