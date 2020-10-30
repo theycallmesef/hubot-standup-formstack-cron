@@ -129,6 +129,8 @@ module.exports = (robot) => {
             let timezone = robot.brain.get(`FS_${room}.TIMEZONE`);
             // Check vars and setup cron
             if (standup_report_cron && reminder_cron) {
+              robot.messageRoom(room, `I got rebooted. I'm restoring the reminder and standup schedule from memory...`);
+              FS_FORMID[room] = robot.brain.get(`FS_${room}.FS_FORMID`);
               SetCron(room, standup_report_cron, reminder_cron, timezone);
             } else {
               // filter out room and remove from list
