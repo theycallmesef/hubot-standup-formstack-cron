@@ -116,13 +116,27 @@ module.exports = (robot) => {
       try {
         robot.logger.info("standup-formstack-cron: Gathering rooms with forms setup from redis");
         // Create array of rooms or empty array
-        let rooms = robot.brain.get(`FS_Rooms`) || [];
-        // loop list of rooms and set up crons that were setup before
-        for (room of rooms) {
-          let standup_report_cron = robot.brain.get(`FS_${room}.REPORT_CRON`);
-          let reminder_cron = robot.brain.get(`FS_${room}.REMIND_CRON`);
-          let timezone = robot.brain.get(`FS_${room}.TIMEZONE`);
-          SetCron(room, standup_report_cron, reminder_cron, timezone);
+        let brainrooms = robot.brain.get(`FS_Rooms`) || [];
+        if (brainrooms.length > 0) {
+          // ignore any duplicates
+          let rooms = brainrooms.filter((c, index) => {
+            return brainrooms.indexOf(c) === index;
+          });
+          // loop list of rooms and set up crons that were setup before
+          for (room of rooms) {
+            let standup_report_cron = robot.brain.get(`FS_${room}.REPORT_CRON`);
+            let reminder_cron = robot.brain.get(`FS_${room}.REMIND_CRON`);
+            let timezone = robot.brain.get(`FS_${room}.TIMEZONE`);
+            // Check vars and setup cron
+            if (standup_report_cron && reminder_cron) {
+              SetCron(room, standup_report_cron, reminder_cron, timezone);
+            } else {
+              // filter out room and remove from list
+              rooms = rooms.filter(e => e !== room);
+            };
+          };
+          // save any changes back to redis
+          robot.brain.set(`FS_Rooms`, rooms);
         };
       } catch(err) {
         robot.logger.info(`standup-formstack-cron: Failed to gather rooms with forms setup from redis ${err}`);
@@ -287,41 +301,45 @@ module.exports = (robot) => {
   function SetCron(room, standup_report_cron, reminder_cron, timezone){
     robot.logger.info("standup-formstack-cron: Running cron setup");
     // Reminder with names of those who already filled it out cron
-    if (reminder_cron && room) {
-      robot.logger.info(`standup-formstack-cron: Setting up reminder cron. Timezone - ${timezone}`);
-      // Reminder Cron
-      REMINDER_CRON_JOB[room] = new CronJob(reminder_cron, function() {
-        GetFormInfoRedis(room);
-        robot.messageRoom(room, `@here Time to fill out the <${FS_URL[room]}|stand up report>\n`);
-        // fuction to list who has filled out the form
-        return FilledItOut(room);
-        robot.logger.info("standup-formstack-cron: Finish FilledItOut Cron");
-      }, null, true, timezone);
-      robot.logger.info("standup-formstack-cron: Starting Reminder Cron");
-      REMINDER_CRON_JOB[room].start();
-    } else {
-      robot.logger.error("standup-formstack-cron: Missing variable for reminder cron");
-    };
+    if (room) {
+      if (reminder_cron) {
+        robot.logger.info(`standup-formstack-cron: Setting up reminder cron. Timezone - ${timezone}`);
+        // Reminder Cron
+        REMINDER_CRON_JOB[room] = new CronJob(reminder_cron, function() {
+          GetFormInfoRedis(room);
+          robot.messageRoom(room, `@here Time to fill out the <${FS_URL[room]}|stand up report>\n`);
+          // fuction to list who has filled out the form
+          return FilledItOut(room);
+          robot.logger.info("standup-formstack-cron: Finish FilledItOut Cron");
+        }, null, true, timezone);
+        robot.logger.info("standup-formstack-cron: Starting Reminder Cron");
+        REMINDER_CRON_JOB[room].start();
+      } else {
+        robot.logger.error("standup-formstack-cron: Missing variable for reminder cron.");
+      };
 
-    if (standup_report_cron && room) {
-      // Report results cron
-      STANDUP_REPORT_CRON_JOB[room] = new CronJob(standup_report_cron, function() {
-        GetFormInfoRedis(room);
-        // fuction to list results of form for today
-        return ReportStandup(room, true);
-      }, null, true, timezone);
-      robot.logger.info("standup-formstack-cron: Starting Report Cron");
-      STANDUP_REPORT_CRON_JOB[room].start();
+      if (standup_report_cron) {
+        // Report results cron
+        STANDUP_REPORT_CRON_JOB[room] = new CronJob(standup_report_cron, function() {
+          GetFormInfoRedis(room);
+          // fuction to list results of form for today
+          return ReportStandup(room, true);
+        }, null, true, timezone);
+        robot.logger.info("standup-formstack-cron: Starting Report Cron");
+        STANDUP_REPORT_CRON_JOB[room].start();
+      } else {
+        robot.logger.error("standup-formstack-cron: Missing variable for standup cron");
+      };
+      // Test if cron is Running
+      if (STANDUP_REPORT_CRON_JOB[room].running && REMINDER_CRON_JOB[room].running) {
+        robot.messageRoom(room, `Form reminder (${FS_FORMID[room]}) setup was successfull\nNext reminder running at  ${REMINDER_CRON_JOB[room].nextDates(1)}\nNext report running at ${STANDUP_REPORT_CRON_JOB[room].nextDates(1)}`);
+        //return true;
+      } else {
+        robot.messageRoom(room, `Form reminder (${FS_FORMID[room]}) failed to be setup\nPlease ask my owner to check the logs`);
+        //return false;
+      };
     } else {
-      robot.logger.error("standup-formstack-cron: Missing variable for standup cron");
-    };
-    // Test if cron is Running
-    if (STANDUP_REPORT_CRON_JOB[room].running && REMINDER_CRON_JOB[room].running) {
-      robot.messageRoom(room, `Form reminder (${FS_FORMID[room]}) setup was successfull\nNext reminder running at  ${REMINDER_CRON_JOB[room].nextDates(1)}\nNext report running at ${STANDUP_REPORT_CRON_JOB[room].nextDates(1)}`);
-      //return true;
-    } else {
-      robot.messageRoom(room, `Form reminder (${FS_FORMID[room]}) failed to be setup\nPlease ask my owner to check the logs`);
-      //return false;
+      robot.logger.error("standup-formstack-cron: Missing variable for room");
     };
   };
 
