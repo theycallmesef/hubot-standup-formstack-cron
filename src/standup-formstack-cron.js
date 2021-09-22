@@ -654,7 +654,7 @@ module.exports = (robot) => {
           "Sooooo... Is everyone on holiday?",
           "Nothing? Was it something I said?",
           "Do you wanna build a snowman?... It doesn't have to be snowman... OK, bye",
-          ":notes:Here I go agian on my own!:notes:\n\tGoing down the only road I've ever know!:notes:",
+          ":notes:Here I go again on my own!:notes:\n\tGoing down the only road I've ever know!:notes:",
           "Bueller? Bueller?... Bueller?....... Bueller?",
           "https://media.giphy.com/media/jNH0Bto1xBNwQ/giphy.gif",
           "Today was a day off wasn't it?... I wish I had a day off",
