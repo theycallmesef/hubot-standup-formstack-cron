@@ -611,7 +611,7 @@ module.exports = (robot) => {
     // title with user name and date
     message = `*${usern}* - ${datefield}`;
     // title section Yesterday with user data below
-    message += `\n\t*_Yesterday:_*\n${CleanTxt(yday)}`;
+    message += `\n\t*_Previous Stand Up:_*\n${CleanTxt(yday)}`;
     // title section today with user data below
     message += `\n\t*_Today:_*\n${CleanTxt(tday)}`;
     // skip blocker section if empty
@@ -660,7 +660,7 @@ module.exports = (robot) => {
           "Today was a day off wasn't it?... I wish I had a day off",
           "Great! I'm going back to sleep",
           `:rotating_light: ${robot.name} dance party!! :rotating_light: \n\thttps://media.giphy.com/media/v0YiARQxj1yc8/giphy.gif`,
-          `*${robot.name} * - ${dateformat}\n\t*_Yesterday:_*\n\t\- Report Standup\n\t\- Answer Questions\n\t\- Other duties as assigned\n\t*_Today:_*\n\t\- Report Standup\n\t\- Answer Questions\n\t\- Other duties as assigned\n\t*_Blockers:_*\n\t\- No one is here`
+          `*${robot.name} * - ${dateformat}\n\t*_Previous Stand Up:_*\n\t\- Report Standup\n\t\- Answer Questions\n\t\- Other duties as assigned\n\t*_Today:_*\n\t\- Report Standup\n\t\- Answer Questions\n\t\- Other duties as assigned\n\t*_Blockers:_*\n\t\- No one is here`
         ];
         robot.messageRoom(room, gone[Math.floor(Math.random()*gone.length)]);
       };
