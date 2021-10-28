@@ -88,6 +88,7 @@ module.exports = (robot) => {
   USERLN_ID = [];
   FSAPIURL = [];
   TIMEZONE = [];
+  RANDOMIZE = [];
 
   // Backwards Compatability set up form from global variables
   if (process.env.HUBOT_FORMSTACK_FORM_ID && process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME) {
@@ -150,7 +151,7 @@ module.exports = (robot) => {
   });
 
   // ---- ad-hoc commands ----
-  //var REGX = "standup\\s+(\\w+(?:\\s+\\w+)?)?$";
+  //Regex summery: "standup" maybe any nummber of spaces, then construct for "setup" or a word maybe with another word
   const REGX = "standup\\s*(setup (\\d+)\\s*(?:(\\d{1,2}:\\d{2}(?:am|pm)?|\\d{4}) ?(?:(\\d{1,2}) ?([0-6]\\-[0-6]|[0-6](?:,[0-6]){0,6})?)?)?|\\w+(?:\\s+[a-z]+)?)?$";
 
   // Hear command without addressing hubot
@@ -170,6 +171,7 @@ module.exports = (robot) => {
   function BotRespond(msg) {
     let room, rxmatch;
     room = msg.message.room;
+    // Ignore the command "standup" and pull remaining command text
     rxmatch = msg.match[1];
     robot.logger.info("standup-formstack-cron: Bot responding to command");
     // Check formstack token is set
@@ -196,23 +198,23 @@ module.exports = (robot) => {
           // function to list available commands
           HelpReply(room);
         } else if (rxmatch.toLowerCase() === "randomize") {
-          // Toggle randomness of report
+          // Toggle randomness of full report
           RANDOMIZE[room] = !RANDOMIZE[room];
           robot.brain.set(`FS_${room}.RANDOMIZE`, RANDOMIZE[room]);
           if (RANDOMIZE[room]) {
-            robot.messageRoom(room, `Reports will be in random order`);
+            robot.messageRoom(room, `Full reports will be in random order`);
           } else {
-            robot.messageRoom(room, `Reports will be in order submitted`);
+            robot.messageRoom(room, `Full reports will be in order submitted`);
           };
-        } else if (rxmatch && rxmatch.toLowerCase().substring(0, 5) === "setup") {
-          // Setup Catch if a form is already setup
+        } else if (rxmatch.toLowerCase().substring(0, 5) === "setup") {
+          // Catch if a form is already setup in room
           robot.messageRoom(room, `There seems to be a form already linked to this room (Form ID: ${FS_FORMID[room]})\nIf you would like to replace the current form\nplease run the remove command and then setup the new one.`);
         } else if (!["today", "help", "randomize", "setup", "remove"].includes(rxmatch)) {
-          // function to list a single user that filled out the form
+          // If non command, call function to list a single users form for today
           SingleReport(room, rxmatch);
         };
       } else {
-        // fuction to list results of form for today
+        // If second part is empty, call function to list all results of form for today
         ReportStandup(room);
       };
     } else {
@@ -635,15 +637,14 @@ module.exports = (robot) => {
   };
 
   function shuffle(array) {
-    let currentIndex = array.length,  randomIndex;
+    let currentIndex = array.length, randomIndex;
     // While there remain elements to shuffle...
     while (currentIndex != 0) {
       // Pick a remaining element...
       randomIndex = Math.floor(Math.random() * currentIndex);
       currentIndex--;
       // And swap it with the current element.
-      [array[currentIndex], array[randomIndex]] = [
-        array[randomIndex], array[currentIndex]];
+      [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
     }
     return array;
   }
@@ -690,14 +691,14 @@ module.exports = (robot) => {
         ];
         robot.messageRoom(room, gone[Math.floor(Math.random()*gone.length)]);
       };
+      // Randomize Post order
+      if (RANDOMIZE[room]){
+        shuffle(messgaearray);
+      }
+      for (message of messgaearray) {
+        robot.messageRoom(room, message);
+      };
     });
-    // Randomize Post order
-    if (RANDOMIZE[room]){
-      shuffle(messgaearray);
-    }
-    for (message of messgaearray) {
-      robot.messageRoom(room, message);
-    };
   };
 
   // ---- Form data Report for single user ----
@@ -784,15 +785,15 @@ module.exports = (robot) => {
   };
 
   function HelpReply(room) {
-    let message;
+    let message = "";
     robot.logger.info(`standup-formstack-cron: Displaying Help to room ${room}`);
     if (ONHEAR) {
-      message += `You can @${robot.name} or I'll listen for *${PREFIX}standup*\n`
+      message += `You can @${robot.name} or I'll listen for *${PREFIX}standup*\n`;
     };
     message += `${robot.name} ${PREFIX}standup - List results of standup form for today\n`;
     message += `${robot.name} ${PREFIX}standup today - List who has filled out the standup form\n`;
-    message +=`${robot.name} ${PREFIX}standup <USERNAME> - List results of standup form for today\n`;
-    message +=`${robot.name} ${PREFIX}standup remove - Remove a form from a room\n`;
+    message += `${robot.name} ${PREFIX}standup <USERNAME> - List results of standup form for today\n`;
+    message += `${robot.name} ${PREFIX}standup remove - Remove a form from a room\n`;
     message += `${robot.name} ${PREFIX}standup setup FORMID TIME REMINDER CRONDAYS - Setup the script for the first time\n`;
     message += `\tFORMID - Formstack Form ID\n`;
     message += `\tTIME - Time of auto post (8:00am or 14:00)\n`;
