@@ -193,11 +193,21 @@ module.exports = (robot) => {
           // function to remove standup from room
           RemoveStandup(room);
         } else if (rxmatch.toLowerCase() === "help") {
-        // function to list available commands
+          // function to list available commands
           HelpReply(room);
+        } else if (rxmatch.toLowerCase() === "randomize") {
+          // Toggle randomness of report
+          RANDOMIZE[room] = !RANDOMIZE[room];
+          robot.brain.set(`FS_${room}.RANDOMIZE`, RANDOMIZE[room]);
+          if (RANDOMIZE[room]) {
+            robot.messageRoom(room, `Reports will be in random order`);
+          } else {
+            robot.messageRoom(room, `Reports will be in order submitted`);
+          };
         } else if (rxmatch && rxmatch.toLowerCase().substring(0, 5) === "setup") {
+          // Setup Catch if a form is already setup
           robot.messageRoom(room, `There seems to be a form already linked to this room (Form ID: ${FS_FORMID[room]})\nIf you would like to replace the current form\nplease run the remove command and then setup the new one.`);
-        } else if (!["today", "help", "setup", "remove"].includes(rxmatch)) {
+        } else if (!["today", "help", "randomize", "setup", "remove"].includes(rxmatch)) {
           // function to list a single user that filled out the form
           SingleReport(room, rxmatch);
         };
@@ -442,6 +452,7 @@ module.exports = (robot) => {
       USERLN_ID[room] = robot.brain.get(`FS_${room}.USERLN_ID`);
       FSAPIURL[room] = robot.brain.get(`FS_${room}.FSAPIURL`);
       TIMEZONE[room] = robot.brain.get(`FS_${room}.TIMEZONE`);
+      RANDOMIZE[room] = robot.brain.get(`FS_${room}.RANDOMIZE`);
     } catch(err) {
       robot.logger.error(`standup-formstack-cron: Error retreving from redis ${err}`);
     };
@@ -477,6 +488,7 @@ module.exports = (robot) => {
       robot.brain.remove(`FS_${room}.USERLN_ID`);
       robot.brain.remove(`FS_${room}.FSAPIURL`);
       robot.brain.remove(`FS_${room}.TIMEZONE`);
+      robot.brain.remove(`FS_${room}.RANDOMIZE`);
     } catch(err) {
       robot.messageRoom(room, `There was an issue, please have my owner check my logs`);
       robot.logger.error(`standup-formstack-cron: Error deleting values in brain ${err}`);
@@ -492,6 +504,7 @@ module.exports = (robot) => {
     delete USERFN_ID[room];
     delete USERLN_ID[room];
     delete FSAPIURL[room];
+    delete RANDOMIZE[room];
 
     try {
       robot.brain.get(`FS_${room}.FS_FORMID`);
@@ -621,9 +634,24 @@ module.exports = (robot) => {
     callback(message);
   };
 
+  function shuffle(array) {
+    let currentIndex = array.length,  randomIndex;
+    // While there remain elements to shuffle...
+    while (currentIndex != 0) {
+      // Pick a remaining element...
+      randomIndex = Math.floor(Math.random() * currentIndex);
+      currentIndex--;
+      // And swap it with the current element.
+      [array[currentIndex], array[randomIndex]] = [
+        array[randomIndex], array[currentIndex]];
+    }
+    return array;
+  }
+
   // ---- Form data Report for all users today ----
   function ReportStandup(room, CronRun) {
     let dates, dateformat, mindate, entry, message, fsurl, datefield, gone;
+    let messgaearray = [];
     robot.logger.info(`standup-formstack-cron: Running standard Standup report to room ${room}`);
     // Get dates needed
     dates = CalcDate(room);
@@ -642,14 +670,12 @@ module.exports = (robot) => {
         if (datefield === dateformat) {
           FormatClean(room, entry, (clnmessage) => {
             // Save data to var in higher scope
-            message = clnmessage;
-            // post message for each matach
-            robot.messageRoom(room, message);
+            messgaearray.push(clnmessage);
           });
         };
       };
       // post Funny message if no results are found
-      if (!message && CronRun) {
+      if (!messgaearray && CronRun) {
         gone = [
           "Sooooo... Is everyone on holiday?",
           "Nothing? Was it something I said?",
@@ -665,6 +691,13 @@ module.exports = (robot) => {
         robot.messageRoom(room, gone[Math.floor(Math.random()*gone.length)]);
       };
     });
+    // Randomize Post order
+    if (RANDOMIZE[room]){
+      shuffle(messgaearray);
+    }
+    for (message of messgaearray) {
+      robot.messageRoom(room, message);
+    };
   };
 
   // ---- Form data Report for single user ----
