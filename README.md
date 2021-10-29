@@ -36,7 +36,7 @@ Requires a Formstack form and access to Formstack api. All forms must be on the 
 | -------- | ----------- |
 | '**Date**' | (REQUIRED) Formstack date the report is for |
 | '**Yesterday**' | (REQUIRED) Formstack tasks from Yesterday|
-| '**Today**' | (REQUIRED) Formstack tasks for Today |
+| '**Today**' or '**Previous**' | (REQUIRED) Formstack tasks for Today |
 | '**Blocker**' or '**Impeding**' | (REQUIRED) Blockers or items keeping work or tasks from happening |
 | '**First Name**' | (REQUIRED) Formstack User (first or other) name |
 | '**Last Name**' | (OPTIONAL) Formstack User Last Name |
@@ -73,6 +73,7 @@ hubot standup setup <FORMID> <TIME> <REMINDER> <CRONDAYS> - Setup the script for
 hubot standup            List all results of standup form for today
 hubot standup today      List all who have filled out the standup form today
 hubot standup <person>   List <person> results of standup form today (search first and/or last name)
+hubot standup randomize  Randomize the list of all results of standup form
 hubot standup remove     Remove the standup link form the room
 ```
 

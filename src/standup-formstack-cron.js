@@ -13,6 +13,7 @@ Commands:
   hubot standup            List all results of standup form for today
   hubot standup today      List all who have filled out the standup form today
   hubot standup <person>   List <person> results of standup form today (search first and/or last name)
+  hubot standup randomize  Randomize the list of all results of standup form
 
 Author:
   theycallmesef
@@ -65,6 +66,7 @@ module.exports = (robot) => {
   robot.commands.push(`hubot ${PREFIX}standup - List results of standup form for today`);
   robot.commands.push(`hubot ${PREFIX}standup today - List who has filled out the standup form`);
   robot.commands.push(`hubot ${PREFIX}standup <USERNAME> - List results of standup form for today`);
+  robot.commands.push(`hubot ${PREFIX}standup randomize - Randomize the list of all results of standup form`);
   robot.commands.push(`hubot ${PREFIX}standup setup - Setup a form in a room (see help for more)`);
   robot.commands.push(`hubot ${PREFIX}standup remove - Remove a form from a room`);
   robot.commands.push(`hubot ${PREFIX}standup help - List command help and how to set up chat room`);
@@ -125,6 +127,7 @@ module.exports = (robot) => {
           rooms = brainrooms.filter((c, index) => {
             return brainrooms.indexOf(c) === index;
           });
+          robot.logger.info(`standup-formstack-cron: Loading ${brainrooms.length} rooms`);
           // loop list of rooms and set up crons that were setup before
           for (room of rooms) {
             let standup_report_cron, reminder_cron, timezone;
@@ -133,6 +136,7 @@ module.exports = (robot) => {
             timezone = robot.brain.get(`FS_${room}.TIMEZONE`);
             // Check vars and setup cron
             if (standup_report_cron && reminder_cron) {
+              robot.logger.info(`standup-formstack-cron: setting up room ${room}`);
               robot.messageRoom(room, `I got rebooted. I'm restoring the reminder and standup schedule from memory...`);
               FS_FORMID[room] = robot.brain.get(`FS_${room}.FS_FORMID`);
               SetCron(room, standup_report_cron, reminder_cron, timezone);
@@ -342,7 +346,7 @@ module.exports = (robot) => {
         // Report results cron
         STANDUP_REPORT_CRON_JOB[room] = new CronJob(standup_report_cron, function() {
           GetFormInfoRedis(room);
-          // fuction to list results of form for today
+          // fuction to list results of form for today "true" is passed to "CronRun"
           return ReportStandup(room, true);
         }, null, true, timezone);
         robot.logger.info("standup-formstack-cron: Starting Report Cron");
@@ -393,7 +397,7 @@ module.exports = (robot) => {
         for (field of jdata.fields) {
           if (field.label.toLowerCase().match(/date/i)) {
             DATEFIELD_ID[room] = field.id;
-          } else if (field.label.toLowerCase().match(/\byesterday\b/i)) {
+          } else if (field.label.toLowerCase().match(/\byesterday\b|\bprevious\b/i)) {
             YDAY_ID[room] = field.id;
           } else if (field.label.toLowerCase().match(/\btoday\b/i)) {
             TDAY_ID[room] = field.id;
@@ -676,7 +680,7 @@ module.exports = (robot) => {
         };
       };
       // post Funny message if no results are found
-      if (!messgaearray && CronRun) {
+      if (messgaearray.length === 0 && CronRun) {
         gone = [
           "Sooooo... Is everyone on holiday?",
           "Nothing? Was it something I said?",
@@ -793,6 +797,7 @@ module.exports = (robot) => {
     message += `${robot.name} ${PREFIX}standup - List results of standup form for today\n`;
     message += `${robot.name} ${PREFIX}standup today - List who has filled out the standup form\n`;
     message += `${robot.name} ${PREFIX}standup <USERNAME> - List results of standup form for today\n`;
+    message += `${robot.name} ${PREFIX}standup randomize - Randomize the list of all results of standup form`
     message += `${robot.name} ${PREFIX}standup remove - Remove a form from a room\n`;
     message += `${robot.name} ${PREFIX}standup setup FORMID TIME REMINDER CRONDAYS - Setup the script for the first time\n`;
     message += `\tFORMID - Formstack Form ID\n`;
