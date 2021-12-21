@@ -192,7 +192,7 @@ module.exports = (robot) => {
     if (FS_FORMID[room]){
       if (rxmatch) {
         // Logic to seperate the commands
-        if (rxmatch.toLowerCase() === "today") {
+        if (rxmatch.toLowerCase() === "today" || rxmatch.toLowerCase() === "list") {
           // fuction to list all users that filled out the form
           FilledItOut(room);
         } else if (rxmatch.toLowerCase() === "remove") {
@@ -740,7 +740,7 @@ module.exports = (robot) => {
       };
       message = messageList.join("\n");
       if (!message) {
-        message = `I'm not able to find ${user}\n`;
+        message = `I'm not able to find a report for ${user}, but\n `;
         FilledItOut(room);
       };
       robot.messageRoom(room, message);
