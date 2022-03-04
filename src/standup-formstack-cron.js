@@ -57,9 +57,13 @@ TODO:
 */
 
 const FS_TOKEN = process.env.HUBOT_FORMSTACK_TOKEN; //(Required) Formstack API Token
-var PREFIX = process.env.HUBOT_FORMSTACK_PREFIX && (PREFIX = `${process.env.HUBOT_FORMSTACK_PREFIX}-`) || ""; //(Optional) set a prefix for multiple standup reports, usually used in combination with "on hear"
-var ONHEAR = process.env.HUBOT_FORMSTACK_HEAR || false; //(Optional) Turn on or off hubot hear (default off)
-var DAYSBACK = process.env.HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK || 5; //(Optional) filter formstack submissions within X day ago
+let PREFIX_A = process.env.HUBOT_FORMSTACK_PREFIX && (PREFIX = `${process.env.HUBOT_FORMSTACK_PREFIX}-`) || ""; //(Optional) set a prefix for multiple standup reports, usually used in combination with "on hear"
+const PREFIX = PREFIX_A;
+let ONHEAR_A = process.env.HUBOT_FORMSTACK_HEAR || false; //(Optional) Turn on or off hubot hear (default off)
+const ONHEAR = ONHEAR_A;
+// NOTE: There is some type of limit on the amount of data returned and truncates the most recent data off. I would not set the look back farther that 5 for 4-5 people filling out the form.
+let DAYSBACK_A = process.env.HUBOT_FORMSTACK_SUBMISSIONS_LOOKBACK || 3; //(Optional) filter formstack submissions within X day ago
+const DAYSBACK = DAYSBACK_A;
 
 module.exports = (robot) => {
   // Push Help Commands
@@ -75,7 +79,7 @@ module.exports = (robot) => {
   const CronJob = require('cron').CronJob;
 
   // timezone module
-  var { DateTime } = require('luxon');
+  const { DateTime } = require('luxon');
 
   // setup global arrays to store vars for each room
   REMINDER_CRON_JOB = [];
@@ -94,63 +98,55 @@ module.exports = (robot) => {
 
   // Backwards Compatability set up form from global variables
   if (process.env.HUBOT_FORMSTACK_FORM_ID && process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME) {
-    let id, rm, mn, rp, tm;
     robot.logger.info("standup-formstack-cron: Setting up Form from env's");
-    id = process.env.HUBOT_FORMSTACK_FORM_ID;
-    rm = process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME;
+    const id = process.env.HUBOT_FORMSTACK_FORM_ID;
+    const rm = process.env.HUBOT_FORMSTACK_CHAT_ROOM_NAME;
     // Auto setup form from env's
     SetupForm(rm, id);
     // Auto setup cron from env's
     if ((process.env.HUBOT_FORMSTACK_REMINDER_CRON || process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON) && process.env.HUBOT_FORMSTACK_TIMEZONE) {
       robot.logger.info("standup-formstack-cron: Setting up Cron from env's");
-      mn = process.env.HUBOT_FORMSTACK_REMINDER_CRON;
-      rp = process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON;
-      tm = process.env.HUBOT_FORMSTACK_TIMEZONE;
+      const mn = process.env.HUBOT_FORMSTACK_REMINDER_CRON;
+      const rp = process.env.HUBOT_FORMSTACK_STANDUP_REPORT_CRON;
+      const tm = process.env.HUBOT_FORMSTACK_TIMEZONE;
       SetCron(rm, rp, mn, tm);
     };
   };
 
   // Load all crons from previous steup rooms from list in redis
-  var FIRSTTIME = true;
-  robot.brain.on('loaded', () => {
-    // Only run once; For some reason "brain" issues "loaded" everytime it
-    // is called. This was suposed to have been fixed, but... here we are.
-    if (FIRSTTIME) {
-      let brainrooms, rooms;
-      FIRSTTIME = false;
-      try {
-        robot.logger.info("standup-formstack-cron: Gathering rooms with forms setup from redis");
-        // Create array of rooms or empty array
-        brainrooms = robot.brain.get(`FS_Rooms`) || [];
-        if (brainrooms.length > 0) {
-          // ignore any duplicates
-          rooms = brainrooms.filter((c, index) => {
-            return brainrooms.indexOf(c) === index;
-          });
-          robot.logger.info(`standup-formstack-cron: Loading ${brainrooms.length} rooms`);
-          // loop list of rooms and set up crons that were setup before
-          for (room of rooms) {
-            let standup_report_cron, reminder_cron, timezone;
-            standup_report_cron = robot.brain.get(`FS_${room}.REPORT_CRON`);
-            reminder_cron = robot.brain.get(`FS_${room}.REMIND_CRON`);
-            timezone = robot.brain.get(`FS_${room}.TIMEZONE`);
-            // Check vars and setup cron
-            if (standup_report_cron && reminder_cron) {
-              robot.logger.info(`standup-formstack-cron: setting up room ${room}`);
-              robot.messageRoom(room, `I got rebooted. I'm restoring the reminder and standup schedule from memory...`);
-              FS_FORMID[room] = robot.brain.get(`FS_${room}.FS_FORMID`);
-              SetCron(room, standup_report_cron, reminder_cron, timezone);
-            } else {
-              // filter out room and remove from list
-              rooms = rooms.filter(e => e !== room);
-            };
+  robot.brain.on('connected', () => {
+    let brainrooms=[], rooms;
+    try {
+      robot.logger.info("standup-formstack-cron: Gathering rooms with forms setup from redis");
+      // Create array of rooms or empty array
+      brainrooms = robot.brain.get(`FS_Rooms`) || [];
+      if (brainrooms.length > 0) {
+        // ignore any duplicates
+        rooms = brainrooms.filter((c, index) => {
+          return brainrooms.indexOf(c) === index;
+        });
+        robot.logger.info(`standup-formstack-cron: Loading ${rooms.length} rooms`);
+        // loop list of rooms and set up crons that were setup before
+        for (room of rooms) {
+          const standup_report_cron = robot.brain.get(`FS_${room}.REPORT_CRON`);
+          const reminder_cron = robot.brain.get(`FS_${room}.REMIND_CRON`);
+          const timezone = robot.brain.get(`FS_${room}.TIMEZONE`);
+          // Check vars and setup cron
+          if (standup_report_cron && reminder_cron) {
+            robot.logger.info(`standup-formstack-cron: setting up room ${room}`);
+            robot.messageRoom(room, `I got rebooted. I'm restoring the reminder and standup schedule from memory...`);
+            FS_FORMID[room] = robot.brain.get(`FS_${room}.FS_FORMID`);
+            SetCron(room, standup_report_cron, reminder_cron, timezone);
+          } else {
+            // filter out room and remove from list
+            rooms = rooms.filter(e => e !== room);
           };
-          // save any changes back to redis
-          robot.brain.set(`FS_Rooms`, rooms);
         };
-      } catch(err) {
-        robot.logger.info(`standup-formstack-cron: Failed to gather rooms with forms setup from redis ${err}`);
+        // save any changes back to redis
+        robot.brain.set(`FS_Rooms`, rooms);
       };
+    } catch(err) {
+      robot.logger.info(`standup-formstack-cron: Failed to gather rooms with forms setup from redis ${err}`);
     };
   });
 
@@ -173,10 +169,9 @@ module.exports = (robot) => {
 
   // Parse responce for commands
   function BotRespond(msg) {
-    let room, rxmatch;
-    room = msg.message.room;
+    const room = msg.message.room;
     // Ignore the command "standup" and pull remaining command text
-    rxmatch = msg.match[1];
+    const rxmatch = msg.match[1];
     robot.logger.info("standup-formstack-cron: Bot responding to command");
     // Check formstack token is set
     if (!FS_TOKEN) {
@@ -242,8 +237,7 @@ module.exports = (robot) => {
 
   // ---- Setup form and cron to room ----
   function SetupForm(room, formid, reporttime, remindbeforemin, days) {
-    let time, date, standup_report_cron, reminder_cron;
-    let rooms = [];
+    let time, date, rooms = [];
     // Make sure form id is a number
     if (Number.isInteger(Number(formid))) {
       FS_FORMID[room] = formid;
@@ -287,11 +281,11 @@ module.exports = (robot) => {
           date.setHours(time[0]);
           date.setMinutes(time[1]);
           // Set report cron for time and days
-          standup_report_cron = `${date.getMinutes()} ${date.getHours()} * * ${days}`;
+          const standup_report_cron = `${date.getMinutes()} ${date.getHours()} * * ${days}`;
           // Set Minutes minus X minutes
           date.setMinutes( date.getMinutes() - remindbeforemin);
           // Set reminder cron for time and days
-          reminder_cron = `${date.getMinutes()} ${date.getHours()} * * ${days}`;
+          const reminder_cron = `${date.getMinutes()} ${date.getHours()} * * ${days}`;
           //log built crons
           robot.logger.info(`standup-formstack-cron: Report Cron Set To - ${standup_report_cron}`);
           robot.logger.info(`standup-formstack-cron: Remind Cron Set To - ${reminder_cron}`);
@@ -323,11 +317,11 @@ module.exports = (robot) => {
 
   // ---- setup auto post and reminder cron ----
   function SetCron(room, standup_report_cron, reminder_cron, timezone){
-    robot.logger.info("standup-formstack-cron: Running cron setup");
+    robot.logger.info(`standup-formstack-cron: Running cron setup: Room - ${room}`);
     // Reminder with names of those who already filled it out cron
     if (room) {
       if (reminder_cron) {
-        robot.logger.info(`standup-formstack-cron: Setting up reminder cron. Timezone - ${timezone}`);
+        robot.logger.info(`standup-formstack-cron: Setting up reminder cron: Room - ${room} | Timezone - ${timezone}`);
         // Reminder Cron
         REMINDER_CRON_JOB[room] = new CronJob(reminder_cron, function() {
           GetFormInfoRedis(room);
@@ -336,7 +330,7 @@ module.exports = (robot) => {
           return FilledItOut(room);
           robot.logger.info("standup-formstack-cron: Finish FilledItOut Cron");
         }, null, true, timezone);
-        robot.logger.info("standup-formstack-cron: Starting Reminder Cron");
+        robot.logger.info(`standup-formstack-cron: Starting Reminder Cron: Room - ${room}`);
         REMINDER_CRON_JOB[room].start();
       } else {
         robot.logger.error("standup-formstack-cron: Missing variable for reminder cron.");
@@ -349,7 +343,7 @@ module.exports = (robot) => {
           // fuction to list results of form for today "true" is passed to "CronRun"
           return ReportStandup(room, true);
         }, null, true, timezone);
-        robot.logger.info("standup-formstack-cron: Starting Report Cron");
+        robot.logger.info(`standup-formstack-cron: Starting Report Cron: Room - ${room}`);
         STANDUP_REPORT_CRON_JOB[room].start();
       } else {
         robot.logger.error("standup-formstack-cron: Missing variable for standup cron");
@@ -382,9 +376,9 @@ module.exports = (robot) => {
   // ---- Pull Data From Formstack HTTP Webhook ----
   // Get info about the form from http webhook (like url and field id's) and then save it to redis (hubot brain)
   function GetFormInfo(room) {
-    let jdata, fsredisarr, fsurl;
+    let jdata;
     FSAPIURL[room] = `https://www.formstack.com/api/v2/form/${FS_FORMID[room]}`;
-    fsurl = `${FSAPIURL[room]}.json?oauth_token=${FS_TOKEN}`;
+    const fsurl = `${FSAPIURL[room]}.json?oauth_token=${FS_TOKEN}`;
     robot.logger.info(`standup-formstack-cron: Calling API to get form data from formstack (${FSAPIURL[room]})`);
     // Call FS http get function
     return new Promise ((resolve, reject) => {
@@ -395,23 +389,24 @@ module.exports = (robot) => {
         robot.logger.info("standup-formstack-cron: Pulling form data from formstack json");
         // Get field id's by keyword search
         for (field of jdata.fields) {
-          if (field.label.toLowerCase().match(/date/i)) {
+          let fieldLabel=field.label.toLowerCase();
+          if (fieldLabel.match(/\bdate\b/i)) {
             DATEFIELD_ID[room] = field.id;
-          } else if (field.label.toLowerCase().match(/\byesterday\b|\bprevious\b/i)) {
+          } else if (fieldLabel.match(/\byesterday\b|\bprevious\b/i)) {
             YDAY_ID[room] = field.id;
-          } else if (field.label.toLowerCase().match(/\btoday\b/i)) {
+          } else if (fieldLabel.match(/\btoday\b/i)) {
             TDAY_ID[room] = field.id;
-          } else if (field.label.toLowerCase().match(/\bimped|\bblock/i)) {
+          } else if (fieldLabel.match(/\bimped|\bblock/i)) {
             BLOCK_ID[room] = field.id;
-          } else if (field.label.toLowerCase().match(/\bfirst name\b/i)) {
+          } else if (fieldLabel.match(/\bfirst name\b/i)) {
             USERFN_ID[room] = field.id;
-          } else if (field.label.toLowerCase().match(/\blast name\b/i)) {
+          } else if (fieldLabel.match(/\blast name\b/i)) {
             USERLN_ID[room] = field.id;
           };
         };
 
         // Array of all required formstack vars
-        fsredisarr = [FS_FORMID[room], DATEFIELD_ID[room], YDAY_ID[room], TDAY_ID[room], BLOCK_ID[room], USERFN_ID[room]];
+        const fsredisarr = [FS_FORMID[room], DATEFIELD_ID[room], YDAY_ID[room], TDAY_ID[room], BLOCK_ID[room], USERFN_ID[room]];
         // test array and write vars to redis
         if (TestArrayValues(fsredisarr)) {
           try {
@@ -444,7 +439,6 @@ module.exports = (robot) => {
   // ---- Pull Data From Redis ----
   // Get info about the form saved in redis (like url and field id's)
   function GetFormInfoRedis(room) {
-    let fsvararr;
     robot.logger.info("standup-formstack-cron: Gathering data from redis");
     // Set vars from redis data
     try {
@@ -464,7 +458,7 @@ module.exports = (robot) => {
     };
 
     // Array of required formstack vars
-    fsvararr = [FS_FORMID[room], DATEFIELD_ID[room], YDAY_ID[room], TDAY_ID[room], BLOCK_ID[room], USERFN_ID[room]];
+    const fsvararr = [FS_FORMID[room], DATEFIELD_ID[room], YDAY_ID[room], TDAY_ID[room], BLOCK_ID[room], USERFN_ID[room]];
     // test array of vars pulled from redis
     if (TestArrayValues(fsvararr)) {
       // got the info
@@ -546,22 +540,19 @@ module.exports = (robot) => {
   // ---- Date calculator and formater ----
   // returns formated current date "datefromat" and lookback date "mindate"
   function CalcDate(room) {
-    let today, todayback, mindate, mthree, datefromat;
+    let today;
     robot.logger.info(`standup-formstack-cron: Running calculations for the date`);
     //set date time to match timezone var time
-    DateTime.local().setZone(TIMEZONE[room]);
-    today = new Date;
-    todayBack = new Date;
-    // Set date lookback XX amount of days
-    todayBack.setDate(todayBack.getDate() - DAYSBACK);
+    if (DateTime.local().setZone(TIMEZONE[room]).isValid) {
+        today = DateTime.now().setZone(TIMEZONE[room]);
+    } else {
+        today = DateTime.now().setZone("America/Los_Angeles");
+    };
     // create lookback date limit to filter submissions results using "min_time" param in url
-    // formstack api "min_time" param is based on eastern time
-    mindate = `${todayBack.getFullYear()}-${(todayBack.getMonth() + 1)}-${todayBack.getDate()} 13:45:00`;
-    // Set Month array
-    mthree = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    // create formated month day year for formstack lookup (Jan 01, 2019)
-    // (`0${today.getDate()}`).slice(-2) creates a two digit day
-    datefromat = (mthree[today.getMonth()]+" "+(`0${today.getDate()}`).slice(-2)+", "+today.getFullYear());
+    // formstack api "min_time" param is based on eastern time (any hard coded time is arbitrary)
+    const mindate = `${DateTime.fromISO(today.minus({ days: DAYSBACK })).toFormat('yyyy-LL-dd')}`;
+    const datefromat = DateTime.fromISO(today).toFormat('LLL dd, yyyy');
+
     // return formated dates
     if (datefromat && mindate) {
       return [datefromat, mindate];
@@ -570,11 +561,9 @@ module.exports = (robot) => {
     };
   };
 
-
   // ---- Return json from formstack web request ----
   // "room" and "fsurl" are passed in, "jbody" is the return
   function GetFormSubData(room, fsurl, callback) {
-    let jdata;
     robot.logger.info("standup-formstack-cron: Gathering json data from form api");
     // Get json of form submissions
     robot.http(fsurl)
@@ -586,7 +575,7 @@ module.exports = (robot) => {
         robot.logger.error(`standup-formstack-cron: Error connecting to formstack: ${res}`);
         return;
       } else {
-        jdata = JSON.parse(body);
+        const jdata = JSON.parse(body);
         if (jdata.error) {
           robot.messageRoom(room, "Somethings not right, have my owner take a look at my logs");
           robot.logger.error(`standup-formstack-cron: Error retreving data: ${jdata.error}`);
@@ -600,32 +589,31 @@ module.exports = (robot) => {
 
   // ---- Format and Clean message data ----
   function FormatClean(room, entry, callback) {
-    let datefield, yday, tday, block, message, userfn, userln, usern;
+    let message, userln;
     robot.logger.info(`standup-formstack-cron: Cleaning format of text for report`);
     // fuction to clean up submission text
     function CleanTxt(value) {
-      let cleaned1, cleaned2, cleaned3
       // Clean trailing spaces
-      cleaned1 = value.replace(/\s+$/g, "");
+      const cleaned1 = value.replace(/\s+$/g, "");
       // Clean Leading spaces and leading hyphans
-      cleaned2 = cleaned1.replace(/^\s*\-+\s*|\s*\-+\s*$|^\s+/gm, "");
+      const cleaned2 = cleaned1.replace(/^\s*\-+\s*|\s*\-+\s*$|^\s+/gm, "");
       // Clean trailing spaces..again
-      cleaned3 =cleaned2.replace(/\s+$/g, "");
+      const cleaned3 =cleaned2.replace(/\s+$/g, "");
       // Add tab and hyphan
       return cleaned3.replace(/^/gm, "\t\- ");
     };
 
     // set vars for text from json data
-    datefield = entry.data[DATEFIELD_ID[room]].value;
-    yday = entry.data[YDAY_ID[room]].value;
-    tday = entry.data[TDAY_ID[room]].value;
-    block = entry.data[BLOCK_ID[room]].value;
-    userfn = entry.data[USERFN_ID[room]].value;
+    const datefield = entry.data[DATEFIELD_ID[room]].value;
+    const yday = entry.data[YDAY_ID[room]].value;
+    const tday = entry.data[TDAY_ID[room]].value;
+    const block = entry.data[BLOCK_ID[room]].value;
+    const userfn = entry.data[USERFN_ID[room]].value;
     if (USERLN_ID[room]) {
       userln = entry.data[USERLN_ID[room]].value;
     };
     // Join first and last if last exist
-    usern = [userfn, userln].filter(Boolean).join(" ");
+    const usern = [userfn, userln].filter(Boolean).join(" ");
     // assemble message
     // title with user name and date
     message = `*${usern}* - ${datefield}`;
@@ -655,22 +643,21 @@ module.exports = (robot) => {
 
   // ---- Form data Report for all users today ----
   function ReportStandup(room, CronRun) {
-    let dates, dateformat, mindate, entry, message, fsurl, datefield, gone;
-    let messgaearray = [];
+    let entry, message, messgaearray = [];
     robot.logger.info(`standup-formstack-cron: Running standard Standup report to room ${room}`);
     // Get dates needed
-    dates = CalcDate(room);
-    dateformat = dates[0];
-    mindate = dates[1];
+    const dates = CalcDate(room);
+    const dateformat = dates[0];
+    const mindate = dates[1];
     // formstack url with form ID, token (oauth_token) and date range filter (min_time)
-    fsurl = `${FSAPIURL[room]}/submission.json?data=true&expand_data=false&min_time=${encodeURI(mindate)}&oauth_token=${FS_TOKEN}`;
+    const fsurl = `${FSAPIURL[room]}/submission.json?data=true&expand_data=false&min_time=${encodeURI(mindate)}&oauth_token=${FS_TOKEN}`;
 
     // Callback return function of pased json from url
     GetFormSubData(room, fsurl, (jdata) => {
       // loop filtered submissions
       for (entry of jdata.submissions) {
         // get date in form
-        datefield = entry.data[DATEFIELD_ID[room]].value;
+        const datefield = entry.data[DATEFIELD_ID[room]].value;
         // Parse submissions and match for today
         if (datefield === dateformat) {
           FormatClean(room, entry, (clnmessage) => {
@@ -681,7 +668,7 @@ module.exports = (robot) => {
       };
       // post Funny message if no results are found
       if (messgaearray.length === 0 && CronRun) {
-        gone = [
+        const gone = [
           "Sooooo... Is everyone on holiday?",
           "Nothing? Was it something I said?",
           "Do you wanna build a snowman?... It doesn't have to be snowman... OK, bye",
@@ -707,25 +694,25 @@ module.exports = (robot) => {
 
   // ---- Form data Report for single user ----
   function SingleReport(room, user) {
-    let dates, dateformat, mindate, fsurl, userfn, datefield, userln, usern, message;
-    let messageList = [];
+    let message, messageList = [];
     robot.logger.info(`standup-formstack-cron: Running single Standup report to room ${room}`);
     // Get dates needed
-    dates = CalcDate(room);
-    dateformat = dates[0];
-    mindate = dates[1];
-    fsurl = `${FSAPIURL[room]}/submission.json?data=true&expand_data=false&min_time=${encodeURI(mindate)}&oauth_token=${FS_TOKEN}`;
+    const dates = CalcDate(room);
+    const dateformat = dates[0];
+    const mindate = dates[1];
+    const fsurl = `${FSAPIURL[room]}/submission.json?data=true&expand_data=false&min_time=${encodeURI(mindate)}&oauth_token=${FS_TOKEN}`;
     // Callback return function of pased json from url
     GetFormSubData(room, fsurl, (jdata) => {
       // loop filtered submissions
       for (entry of jdata.submissions) {
+        let userfn, datefield, userln;
         userfn = entry.data[USERFN_ID[room]].value;
         datefield = entry.data[DATEFIELD_ID[room]].value;
         if (USERLN_ID[room]) {
           userln = entry.data[USERLN_ID[room]].value;
         };
         // Join first and last if last exist
-        usern = [userfn, userln].filter(Boolean).join(" ");
+        const usern = [userfn, userln].filter(Boolean).join(" ");
         // build array of usernames for today
         if (datefield === dateformat) {
           // look up user
@@ -749,32 +736,32 @@ module.exports = (robot) => {
 
   // ---- List users who filled out report today ----
   function FilledItOut(room) {
-    let dates, dateformat, mindate, fsurl, userfn, datefield, userln, usern, userList, message;
-    let users = [];
+    let message, users = [];
     robot.logger.info(`standup-formstack-cron: Running list of users that filled out report to room ${room}`);
     // Get dates needed
-    dates = CalcDate(room);
-    dateformat = dates[0];
-    mindate = dates[1];
-    fsurl = `${FSAPIURL[room]}/submission.json?data=true&expand_data=false&min_time=${encodeURI(mindate)}&oauth_token=${FS_TOKEN}`;
+    const dates = CalcDate(room);
+    const dateformat = dates[0];
+    const mindate = dates[1];
+    const fsurl = `${FSAPIURL[room]}/submission.json?data=true&expand_data=false&min_time=${encodeURI(mindate)}&oauth_token=${FS_TOKEN}`;
     // Callback return function of pased json from url
     GetFormSubData(room, fsurl, (jdata) => {
       // loop filtered submissions
       for (entry of jdata.submissions) {
+        let userfn, datefield, userln;
         userfn = entry.data[USERFN_ID[room]].value;
         datefield = entry.data[DATEFIELD_ID[room]].value;
         if (USERLN_ID[room]) {
           userln = entry.data[USERLN_ID[room]].value;
         };
         // Join first and last if last exist
-        usern = [userfn, userln].filter(Boolean).join(" ");
+        const usern = [userfn, userln].filter(Boolean).join(" ");
         // build array of usernames for today
         if (datefield === dateformat) {
           users.push(usern);
         };
       };
       // comma seperate users array and replace last comma with "and"
-      userList = users.join(", ").replace(/, ([^,]+)$/, ' and $1') || "No one";
+      const userList = users.join(", ").replace(/, ([^,]+)$/, ' and $1') || "No one";
       // set message and grammer to fit results
       if (users.length <= 1) {
         // message for 1 user
