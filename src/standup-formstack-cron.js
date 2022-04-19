@@ -784,7 +784,7 @@ module.exports = (robot) => {
     message += `${robot.name} ${PREFIX}standup - List results of standup form for today\n`;
     message += `${robot.name} ${PREFIX}standup today - List who has filled out the standup form\n`;
     message += `${robot.name} ${PREFIX}standup <USERNAME> - List results of standup form for today\n`;
-    message += `${robot.name} ${PREFIX}standup randomize - Randomize the list of all results of standup form`
+    message += `${robot.name} ${PREFIX}standup randomize - Randomize the list of all results of standup form\n`
     message += `${robot.name} ${PREFIX}standup remove - Remove a form from a room\n`;
     message += `${robot.name} ${PREFIX}standup setup FORMID TIME REMINDER CRONDAYS - Setup the script for the first time\n`;
     message += `\tFORMID - Formstack Form ID\n`;
